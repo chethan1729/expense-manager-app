@@ -1,10 +1,11 @@
 import { useExpenses } from "@/hooks/useExpenses";
 import { ExpenseCard } from "@/components/ExpenseCard";
 import { AddExpenseDialog } from "@/components/AddExpenseDialog";
+import { UploadExcelDialog } from "@/components/UploadExcelDialog";
 import { Wallet, TrendingDown, TrendingUp, IndianRupee } from "lucide-react";
 
 const Index = () => {
-  const { expenses, updateExpense, addExpense, deleteExpense, totals } = useExpenses();
+  const { expenses, updateExpense, addExpense, deleteExpense, importExpenses, totals } = useExpenses();
 
   const summaryCards = [
     {

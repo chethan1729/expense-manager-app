@@ -55,6 +55,12 @@ export function useExpenses() {
     setExpenses((prev) => prev.filter((e) => e.id !== id));
   };
 
+  const importExpenses = (items: Omit<Expense, "id">[]) => {
+    setExpenses(
+      items.map((item) => ({ ...item, id: crypto.randomUUID() }))
+    );
+  };
+
   const totals = expenses.reduce(
     (acc, e) => ({
       estimated: acc.estimated + e.estimated,
@@ -64,5 +70,5 @@ export function useExpenses() {
     { estimated: 0, spent: 0, remaining: 0 }
   );
 
-  return { expenses, updateExpense, addExpense, deleteExpense, totals };
+  return { expenses, updateExpense, addExpense, deleteExpense, importExpenses, totals };
 }
