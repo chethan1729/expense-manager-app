@@ -1,10 +1,11 @@
 import { useExpenses } from "@/hooks/useExpenses";
 import { ExpenseCard } from "@/components/ExpenseCard";
 import { AddExpenseDialog } from "@/components/AddExpenseDialog";
+import { UploadExcelDialog } from "@/components/UploadExcelDialog";
 import { Wallet, TrendingDown, TrendingUp, IndianRupee } from "lucide-react";
 
 const Index = () => {
-  const { expenses, updateExpense, addExpense, deleteExpense, totals } = useExpenses();
+  const { expenses, updateExpense, addExpense, deleteExpense, importExpenses, totals } = useExpenses();
 
   const summaryCards = [
     {
@@ -66,9 +67,12 @@ const Index = () => {
 
         {/* Expense List */}
         <div className="space-y-3">
-          <h2 className="font-heading font-semibold text-foreground">
-            Daily Expenses ({expenses.length})
-          </h2>
+          <div className="flex items-center justify-between">
+            <h2 className="font-heading font-semibold text-foreground">
+              Daily Expenses ({expenses.length})
+            </h2>
+            <UploadExcelDialog onImport={importExpenses} />
+          </div>
           {expenses.map((expense) => (
             <ExpenseCard
               key={expense.id}
