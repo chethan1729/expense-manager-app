@@ -67,8 +67,12 @@ const Index = () => {
 
         {/* Expense List */}
         <div className="space-y-3">
-          <h2 className="font-heading font-semibold text-foreground">
-            Daily Expenses ({expenses.length})
+          <div className="flex items-center justify-between">
+            <h2 className="font-heading font-semibold text-foreground">
+              Daily Expenses ({expenses.length})
+            </h2>
+            <UploadExcelDialog onImport={importExpenses} />
+          </div>
           </h2>
           {expenses.map((expense) => (
             <ExpenseCard
