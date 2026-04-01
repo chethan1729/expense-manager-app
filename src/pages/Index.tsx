@@ -73,7 +73,6 @@ const Index = () => {
             </h2>
             <UploadExcelDialog onImport={importExpenses} />
           </div>
-          </h2>
           {expenses.map((expense) => (
             <ExpenseCard
               key={expense.id}
