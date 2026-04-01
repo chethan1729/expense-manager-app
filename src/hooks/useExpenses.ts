@@ -10,11 +10,19 @@ export interface Expense {
 const STORAGE_KEY = "expense-manager-april-2026";
 
 const defaultExpenses: Expense[] = [
-  { id: "1", description: "Rent", estimated: 0, spent: 0 },
-  { id: "2", description: "Groceries", estimated: 0, spent: 0 },
-  { id: "3", description: "Transport", estimated: 0, spent: 0 },
-  { id: "4", description: "Utilities", estimated: 0, spent: 0 },
-  { id: "5", description: "Entertainment", estimated: 0, spent: 0 },
+  { id: "1", description: "Maintanance", estimated: 4500, spent: 0 },
+  { id: "2", description: "Electricity Bill", estimated: 1500, spent: 0 },
+  { id: "3", description: "Petrol / Bus / Cab", estimated: 5000, spent: 50 },
+  { id: "4", description: "Groceries", estimated: 4000, spent: 456 },
+  { id: "5", description: "Food", estimated: 4000, spent: 0 },
+  { id: "6", description: "Mobile Recharge / Wifi / DTH", estimated: 500, spent: 0 },
+  { id: "7", description: "OTT - Netflix, Spotify etc", estimated: 1000, spent: 0 },
+  { id: "8", description: "Party / Movie / Cafe / Dining", estimated: 4000, spent: 0 },
+  { id: "9", description: "Gift", estimated: 0, spent: 0 },
+  { id: "10", description: "Bike License / Insurance / Service", estimated: 2500, spent: 0 },
+  { id: "11", description: "Gas - Cylinder", estimated: 0, spent: 0 },
+  { id: "12", description: "EMI (Active - 1) / Credit Card Bills", estimated: 53703, spent: 53703 },
+  { id: "13", description: "Extra Expenses", estimated: 3000, spent: 0 },
 ];
 
 export function useExpenses() {
