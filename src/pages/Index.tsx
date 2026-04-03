@@ -3,6 +3,7 @@ import { ExpenseCard } from "@/components/ExpenseCard";
 import { AddExpenseDialog } from "@/components/AddExpenseDialog";
 import { UploadExcelDialog } from "@/components/UploadExcelDialog";
 import { DashboardView } from "@/components/DashboardView";
+import { InvestmentFundView } from "@/components/InvestmentFundView";
 import { Wallet, TrendingDown, TrendingUp, IndianRupee } from "lucide-react";
 import {
   Select,
@@ -18,20 +19,27 @@ const Index = () => {
     activeSectionId,
     setActiveSectionId,
     activeSection,
+    totalBudget,
+    setTotalBudget,
     updateExpense,
     addExpense,
     deleteExpense,
     importExpenses,
+    updateSectionBudget,
+    addInvestmentItem,
+    updateInvestmentItem,
+    deleteInvestmentItem,
     getSectionTotals,
     dashboardData,
   } = useFundManager();
 
   const isDashboard = activeSectionId === "dashboard";
+  const isInvestment = activeSectionId === "investment-fund";
   const totals = activeSection ? getSectionTotals(activeSection) : null;
 
-  const summaryCards = totals
+  const summaryCards = totals && !isInvestment
     ? [
-        { label: "Estimated", value: totals.estimated, icon: Wallet, color: "text-primary", bg: "bg-primary/10" },
+        { label: "Allocated", value: totals.estimated, icon: Wallet, color: "text-primary", bg: "bg-primary/10" },
         { label: "Spent", value: totals.spent, icon: TrendingDown, color: "text-accent", bg: "bg-accent/10" },
         {
           label: "Remaining",
@@ -77,6 +85,16 @@ const Index = () => {
           <DashboardView
             dashboardData={dashboardData}
             onSelectSection={setActiveSectionId}
+            onUpdateBudget={setTotalBudget}
+          />
+        ) : isInvestment && activeSection ? (
+          <InvestmentFundView
+            budget={activeSection.budget}
+            items={activeSection.investmentItems || []}
+            onUpdateBudget={(b) => updateSectionBudget(activeSection.id, b)}
+            onAddItem={(name, alloc, cv) => addInvestmentItem(activeSection.id, name, alloc, cv)}
+            onUpdateItem={(id, updates) => updateInvestmentItem(activeSection.id, id, updates)}
+            onDeleteItem={(id) => deleteInvestmentItem(activeSection.id, id)}
           />
         ) : activeSection ? (
           <>
@@ -124,8 +142,8 @@ const Index = () => {
         ) : null}
       </main>
 
-      {/* Floating Add Button — only on fund sections */}
-      {!isDashboard && activeSection && (
+      {/* Floating Add Button — only on non-dashboard, non-investment sections */}
+      {!isDashboard && !isInvestment && activeSection && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-20">
           <AddExpenseDialog
             onAdd={(desc, est, spent) => addExpense(activeSection.id, desc, est, spent)}
