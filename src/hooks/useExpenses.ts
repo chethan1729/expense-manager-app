@@ -7,14 +7,23 @@ export interface Expense {
   spent: number;
 }
 
+export interface InvestmentItem {
+  id: string;
+  name: string;
+  allocated: number;
+  currentValue: number;
+}
+
 export interface FundSection {
   id: string;
   name: string;
   budget: number;
   expenses: Expense[];
+  investmentItems?: InvestmentItem[];
 }
 
 const STORAGE_KEY = "expense-manager-funds-v2";
+const BUDGET_KEY = "expense-manager-total-budget";
 
 const defaultSections: FundSection[] = [
   {
@@ -41,12 +50,13 @@ const defaultSections: FundSection[] = [
     id: "investment-fund",
     name: "Investment Fund",
     budget: 17000,
-    expenses: [
-      { id: "inv1", description: "Equity Shares (IN)", estimated: 0, spent: 0 },
-      { id: "inv2", description: "Equity Shares (US)", estimated: 0, spent: 0 },
-      { id: "inv3", description: "Mutual Fund", estimated: 0, spent: 0 },
-      { id: "inv4", description: "Mutual Fund (Tax Saver)", estimated: 0, spent: 0 },
-      { id: "inv5", description: "Crypto", estimated: 0, spent: 0 },
+    expenses: [],
+    investmentItems: [
+      { id: "inv1", name: "Equity Shares (IN)", allocated: 0, currentValue: 0 },
+      { id: "inv2", name: "Equity Shares (US)", allocated: 0, currentValue: 0 },
+      { id: "inv3", name: "Mutual Fund", allocated: 0, currentValue: 0 },
+      { id: "inv4", name: "Mutual Fund (Tax Saver)", allocated: 0, currentValue: 0 },
+      { id: "inv5", name: "Crypto", allocated: 0, currentValue: 0 },
     ],
   },
   {
@@ -106,11 +116,20 @@ export function useFundManager() {
     return stored ? JSON.parse(stored) : defaultSections;
   });
 
+  const [totalBudget, setTotalBudget] = useState<number>(() => {
+    const stored = localStorage.getItem(BUDGET_KEY);
+    return stored ? parseFloat(stored) : 175981;
+  });
+
   const [activeSectionId, setActiveSectionId] = useState<string>("dashboard");
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(sections));
   }, [sections]);
+
+  useEffect(() => {
+    localStorage.setItem(BUDGET_KEY, totalBudget.toString());
+  }, [totalBudget]);
 
   const activeSection = sections.find((s) => s.id === activeSectionId) || null;
 
@@ -147,7 +166,49 @@ export function useFundManager() {
     );
   };
 
+  // Investment fund methods
+  const updateSectionBudget = (sectionId: string, budget: number) => {
+    setSections((prev) =>
+      prev.map((s) => (s.id === sectionId ? { ...s, budget } : s))
+    );
+  };
+
+  const addInvestmentItem = (sectionId: string, name: string, allocated: number, currentValue: number) => {
+    const item: InvestmentItem = { id: crypto.randomUUID(), name, allocated, currentValue };
+    setSections((prev) =>
+      prev.map((s) => (s.id === sectionId ? { ...s, investmentItems: [...(s.investmentItems || []), item] } : s))
+    );
+  };
+
+  const updateInvestmentItem = (sectionId: string, itemId: string, updates: Partial<Omit<InvestmentItem, "id">>) => {
+    setSections((prev) =>
+      prev.map((s) =>
+        s.id === sectionId
+          ? { ...s, investmentItems: (s.investmentItems || []).map((i) => (i.id === itemId ? { ...i, ...updates } : i)) }
+          : s
+      )
+    );
+  };
+
+  const deleteInvestmentItem = (sectionId: string, itemId: string) => {
+    setSections((prev) =>
+      prev.map((s) =>
+        s.id === sectionId
+          ? { ...s, investmentItems: (s.investmentItems || []).filter((i) => i.id !== itemId) }
+          : s
+      )
+    );
+  };
+
   const getSectionTotals = (section: FundSection) => {
+    // For investment fund, "spent" = budget allocated (goes out of bank)
+    if (section.id === "investment-fund") {
+      return {
+        estimated: section.budget,
+        spent: section.budget,
+        remaining: 0,
+      };
+    }
     return section.expenses.reduce(
       (acc, e) => ({
         estimated: acc.estimated + e.estimated,
@@ -171,9 +232,9 @@ export function useFundManager() {
   );
 
   const dashboardData = {
-    totalBudget: 175981,
+    totalBudget,
     totalSpent: overallTotals.spent,
-    totalRemaining: 175981 - overallTotals.spent,
+    totalRemaining: totalBudget - overallTotals.spent,
     sections: sections.map((s) => ({ ...s, totals: getSectionTotals(s) })),
   };
 
@@ -182,10 +243,16 @@ export function useFundManager() {
     activeSectionId,
     setActiveSectionId,
     activeSection,
+    totalBudget,
+    setTotalBudget,
     updateExpense,
     addExpense,
     deleteExpense,
     importExpenses,
+    updateSectionBudget,
+    addInvestmentItem,
+    updateInvestmentItem,
+    deleteInvestmentItem,
     getSectionTotals,
     overallTotals,
     dashboardData,
