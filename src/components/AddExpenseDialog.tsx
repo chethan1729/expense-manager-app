@@ -48,7 +48,7 @@ export function AddExpenseDialog({ onAdd }: AddExpenseDialogProps) {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-sm text-muted-foreground mb-1 block">Estimated (₹)</label>
+              <label className="text-sm text-muted-foreground mb-1 block">Allocated (₹)</label>
               <Input type="number" value={est} onChange={(e) => setEst(e.target.value)} placeholder="0" />
             </div>
             <div>
