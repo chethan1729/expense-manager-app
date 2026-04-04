@@ -13,14 +13,7 @@ interface InvestmentFundViewProps {
   onDeleteItem: (id: string) => void;
 }
 
-export function InvestmentFundView({
-  budget,
-  items,
-  onUpdateBudget,
-  onAddItem,
-  onUpdateItem,
-  onDeleteItem,
-}: InvestmentFundViewProps) {
+export function InvestmentFundView({ budget, items, onUpdateBudget, onAddItem, onUpdateItem, onDeleteItem }: InvestmentFundViewProps) {
   const [editingBudget, setEditingBudget] = useState(false);
   const [budgetVal, setBudgetVal] = useState(budget.toString());
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
@@ -34,14 +27,10 @@ export function InvestmentFundView({
 
   const totalAllocated = items.reduce((sum, i) => sum + i.allocated, 0);
   const totalCurrentValue = items.reduce((sum, i) => sum + i.currentValue, 0);
-  const overallChange = totalAllocated > 0
-    ? ((totalCurrentValue - totalAllocated) / totalAllocated) * 100
-    : 0;
+  const overallPL = totalCurrentValue - totalAllocated;
+  const overallChange = totalAllocated > 0 ? (overallPL / totalAllocated) * 100 : 0;
 
-  const handleSaveBudget = () => {
-    onUpdateBudget(parseFloat(budgetVal) || 0);
-    setEditingBudget(false);
-  };
+  const handleSaveBudget = () => { onUpdateBudget(parseFloat(budgetVal) || 0); setEditingBudget(false); };
 
   const openEditItem = (item: InvestmentItem) => {
     setEditingItemId(item.id);
@@ -52,44 +41,29 @@ export function InvestmentFundView({
 
   const saveItem = () => {
     if (!editingItemId) return;
-    onUpdateItem(editingItemId, {
-      name: itemName,
-      allocated: parseFloat(itemAllocated) || 0,
-      currentValue: parseFloat(itemCurrentValue) || 0,
-    });
+    onUpdateItem(editingItemId, { name: itemName, allocated: parseFloat(itemAllocated) || 0, currentValue: parseFloat(itemCurrentValue) || 0 });
     setEditingItemId(null);
   };
 
   const handleAddNew = () => {
     if (!newName.trim()) return;
     onAddItem(newName.trim(), parseFloat(newAllocated) || 0, parseFloat(newCurrentValue) || 0);
-    setNewName("");
-    setNewAllocated("");
-    setNewCurrentValue("");
-    setAddingNew(false);
+    setNewName(""); setNewAllocated(""); setNewCurrentValue(""); setAddingNew(false);
   };
 
   return (
     <div className="space-y-6">
-      {/* Budget allocation card */}
       {editingBudget ? (
         <div className="rounded-xl border border-primary/30 bg-card p-4 space-y-3">
           <label className="text-sm font-medium text-foreground">Allocated to Investment Fund (₹)</label>
           <Input type="number" value={budgetVal} onChange={(e) => setBudgetVal(e.target.value)} autoFocus />
           <div className="flex gap-2 justify-end">
-            <Button size="sm" variant="ghost" onClick={() => setEditingBudget(false)}>
-              <X className="h-4 w-4 mr-1" /> Cancel
-            </Button>
-            <Button size="sm" onClick={handleSaveBudget}>
-              <Check className="h-4 w-4 mr-1" /> Save
-            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setEditingBudget(false)}><X className="h-4 w-4 mr-1" /> Cancel</Button>
+            <Button size="sm" onClick={handleSaveBudget}><Check className="h-4 w-4 mr-1" /> Save</Button>
           </div>
         </div>
       ) : (
-        <div
-          className="rounded-xl bg-primary/10 p-4 space-y-1 cursor-pointer hover:ring-2 ring-primary/30"
-          onClick={() => { setBudgetVal(budget.toString()); setEditingBudget(true); }}
-        >
+        <div className="rounded-xl bg-primary/10 p-4 space-y-1 cursor-pointer hover:ring-2 ring-primary/30" onClick={() => { setBudgetVal(budget.toString()); setEditingBudget(true); }}>
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground">Allocated</span>
             <Pencil className="h-3 w-3 text-muted-foreground" />
@@ -98,7 +72,6 @@ export function InvestmentFundView({
         </div>
       )}
 
-      {/* Summary */}
       {items.length > 0 && (
         <div className="grid grid-cols-3 gap-3">
           <div className="rounded-xl bg-muted/50 p-3 space-y-1">
@@ -110,22 +83,22 @@ export function InvestmentFundView({
             <span className="font-heading font-bold text-sm">₹{totalCurrentValue.toLocaleString()}</span>
           </div>
           <div className="rounded-xl bg-muted/50 p-3 space-y-1">
-            <span className="text-xs text-muted-foreground block">Change</span>
-            <span className={`font-heading font-bold text-sm flex items-center gap-1 ${overallChange >= 0 ? "text-primary" : "text-destructive"}`}>
-              {overallChange >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-              {overallChange.toFixed(1)}%
+            <span className="text-xs text-muted-foreground block">P/L</span>
+            <span className={`font-heading font-bold text-sm flex flex-col ${overallPL >= 0 ? "text-primary" : "text-destructive"}`}>
+              <span className="flex items-center gap-1">
+                {overallPL >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                {overallPL >= 0 ? "+" : ""}₹{Math.abs(overallPL).toLocaleString()}
+              </span>
+              <span className="text-[10px]">({overallChange.toFixed(1)}%)</span>
             </span>
           </div>
         </div>
       )}
 
-      {/* Investment items */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="font-heading font-semibold text-foreground">Investment Profiles</h2>
-          <Button size="sm" variant="outline" onClick={() => setAddingNew(true)}>
-            <Plus className="h-4 w-4 mr-1" /> Add
-          </Button>
+          <Button size="sm" variant="outline" onClick={() => setAddingNew(true)}><Plus className="h-4 w-4 mr-1" /> Add</Button>
         </div>
 
         {addingNew && (
@@ -142,20 +115,15 @@ export function InvestmentFundView({
               </div>
             </div>
             <div className="flex gap-2 justify-end">
-              <Button size="sm" variant="ghost" onClick={() => setAddingNew(false)}>
-                <X className="h-4 w-4 mr-1" /> Cancel
-              </Button>
-              <Button size="sm" onClick={handleAddNew}>
-                <Check className="h-4 w-4 mr-1" /> Add
-              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setAddingNew(false)}><X className="h-4 w-4 mr-1" /> Cancel</Button>
+              <Button size="sm" onClick={handleAddNew}><Check className="h-4 w-4 mr-1" /> Add</Button>
             </div>
           </div>
         )}
 
         {items.map((item) => {
-          const pctChange = item.allocated > 0
-            ? ((item.currentValue - item.allocated) / item.allocated) * 100
-            : 0;
+          const pl = item.currentValue - item.allocated;
+          const pctChange = item.allocated > 0 ? (pl / item.allocated) * 100 : 0;
 
           if (editingItemId === item.id) {
             return (
@@ -176,12 +144,8 @@ export function InvestmentFundView({
                     <Trash2 className="h-4 w-4 mr-1" /> Delete
                   </Button>
                   <div className="flex gap-2">
-                    <Button size="sm" variant="ghost" onClick={() => setEditingItemId(null)}>
-                      <X className="h-4 w-4 mr-1" /> Cancel
-                    </Button>
-                    <Button size="sm" onClick={saveItem}>
-                      <Check className="h-4 w-4 mr-1" /> Save
-                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => setEditingItemId(null)}><X className="h-4 w-4 mr-1" /> Cancel</Button>
+                    <Button size="sm" onClick={saveItem}><Check className="h-4 w-4 mr-1" /> Save</Button>
                   </div>
                 </div>
               </div>
@@ -189,11 +153,7 @@ export function InvestmentFundView({
           }
 
           return (
-            <div
-              key={item.id}
-              className="rounded-lg border bg-card p-4 space-y-2 cursor-pointer hover:border-primary/40 transition-colors"
-              onClick={() => openEditItem(item)}
-            >
+            <div key={item.id} className="rounded-lg border bg-card p-4 space-y-2 cursor-pointer hover:border-primary/40 transition-colors" onClick={() => openEditItem(item)}>
               <h3 className="font-heading font-semibold text-card-foreground text-sm">{item.name}</h3>
               <div className="grid grid-cols-3 gap-2 text-sm">
                 <div>
@@ -205,10 +165,10 @@ export function InvestmentFundView({
                   <span className="font-medium font-heading">₹{item.currentValue.toLocaleString()}</span>
                 </div>
                 <div>
-                  <span className="text-muted-foreground text-xs block">Change</span>
-                  <span className={`font-medium font-heading flex items-center gap-1 ${pctChange >= 0 ? "text-primary" : "text-destructive"}`}>
-                    {pctChange >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                    {pctChange.toFixed(1)}%
+                  <span className="text-muted-foreground text-xs block">P/L</span>
+                  <span className={`font-medium font-heading flex flex-col ${pl >= 0 ? "text-primary" : "text-destructive"}`}>
+                    <span>{pl >= 0 ? "+" : ""}₹{Math.abs(pl).toLocaleString()}</span>
+                    <span className="text-[10px]">({pctChange.toFixed(1)}%)</span>
                   </span>
                 </div>
               </div>

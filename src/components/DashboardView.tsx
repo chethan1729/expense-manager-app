@@ -9,6 +9,7 @@ interface DashboardViewProps {
     totalBudget: number;
     totalSpent: number;
     totalRemaining: number;
+    unallocatedBudget: number;
     sections: (FundSection & { totals: { estimated: number; spent: number; remaining: number } })[];
   };
   onSelectSection: (id: string) => void;
@@ -16,7 +17,7 @@ interface DashboardViewProps {
 }
 
 export function DashboardView({ dashboardData, onSelectSection, onUpdateBudget }: DashboardViewProps) {
-  const { totalBudget, totalSpent, totalRemaining } = dashboardData;
+  const { totalBudget, totalSpent, totalRemaining, unallocatedBudget } = dashboardData;
   const [editingBudget, setEditingBudget] = useState(false);
   const [budgetValue, setBudgetValue] = useState(totalBudget.toString());
 
@@ -39,16 +40,10 @@ export function DashboardView({ dashboardData, onSelectSection, onUpdateBudget }
 
   return (
     <div className="space-y-6">
-      {/* Budget config */}
       {editingBudget ? (
         <div className="rounded-xl border border-primary/30 bg-card p-4 space-y-3">
           <label className="text-sm font-medium text-foreground">Total Monthly Budget (₹)</label>
-          <Input
-            type="number"
-            value={budgetValue}
-            onChange={(e) => setBudgetValue(e.target.value)}
-            autoFocus
-          />
+          <Input type="number" value={budgetValue} onChange={(e) => setBudgetValue(e.target.value)} autoFocus />
           <div className="flex gap-2 justify-end">
             <Button size="sm" variant="ghost" onClick={() => setEditingBudget(false)}>
               <X className="h-4 w-4 mr-1" /> Cancel
@@ -80,7 +75,12 @@ export function DashboardView({ dashboardData, onSelectSection, onUpdateBudget }
       )}
 
       <div className="space-y-3">
-        <h2 className="font-heading font-semibold text-foreground">Fund Overview</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="font-heading font-semibold text-foreground">Fund Overview</h2>
+          <span className={`text-xs font-medium px-2 py-1 rounded-full ${unallocatedBudget > 0 ? "bg-accent/10 text-accent" : unallocatedBudget < 0 ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary"}`}>
+            {unallocatedBudget >= 0 ? `₹${unallocatedBudget.toLocaleString()} unallocated` : `₹${Math.abs(unallocatedBudget).toLocaleString()} over-allocated`}
+          </span>
+        </div>
         {dashboardData.sections.map((section) => {
           const progress = section.totals.estimated > 0
             ? (section.totals.spent / section.totals.estimated) * 100
@@ -92,11 +92,9 @@ export function DashboardView({ dashboardData, onSelectSection, onUpdateBudget }
               className="w-full rounded-lg border bg-card p-4 text-left space-y-2 hover:border-primary/40 transition-colors"
             >
               <div className="flex items-center justify-between">
-                <h3 className="font-heading font-semibold text-card-foreground text-sm">
-                  {section.name}
-                </h3>
+                <h3 className="font-heading font-semibold text-card-foreground text-sm">{section.name}</h3>
                 <span className="text-xs text-muted-foreground">
-                  {section.expenses.length} items
+                  {section.id === "investment-fund" ? `${(section.investmentItems || []).length} profiles` : `${section.expenses.length} items`}
                 </span>
               </div>
               <div className="grid grid-cols-3 gap-2 text-xs">
