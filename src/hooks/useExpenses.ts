@@ -1,10 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 
 export interface Expense {
   id: string;
   description: string;
   estimated: number;
   spent: number;
+  isFD?: boolean;
+  preExistingFD?: number;
 }
 
 export interface InvestmentItem {
@@ -22,8 +24,10 @@ export interface FundSection {
   investmentItems?: InvestmentItem[];
 }
 
-const STORAGE_KEY = "expense-manager-funds-v2";
+const STORAGE_KEY = "expense-manager-funds-v3";
 const BUDGET_KEY = "expense-manager-total-budget";
+
+const FD_ELIGIBLE_FUNDS = ["loan-fund", "wishlist-fund", "emergency-fund", "saving-fund"];
 
 const defaultSections: FundSection[] = [
   {
@@ -59,12 +63,7 @@ const defaultSections: FundSection[] = [
       { id: "inv5", name: "Crypto", allocated: 0, currentValue: 0 },
     ],
   },
-  {
-    id: "hobby-fund",
-    name: "Hobby Fund",
-    budget: 0,
-    expenses: [],
-  },
+  { id: "hobby-fund", name: "Hobby Fund", budget: 0, expenses: [] },
   {
     id: "loan-fund",
     name: "Loan Fund",
@@ -84,30 +83,10 @@ const defaultSections: FundSection[] = [
       { id: "wf4", description: "T.Courses / H.Studies", estimated: 10000, spent: 0 },
     ],
   },
-  {
-    id: "ai-fund",
-    name: "AI Fund",
-    budget: 0,
-    expenses: [],
-  },
-  {
-    id: "emergency-fund",
-    name: "Emergency Fund",
-    budget: 0,
-    expenses: [],
-  },
-  {
-    id: "saving-fund",
-    name: "Saving Fund",
-    budget: 0,
-    expenses: [],
-  },
-  {
-    id: "free-fund",
-    name: "Free Fund",
-    budget: 0,
-    expenses: [],
-  },
+  { id: "ai-fund", name: "AI Fund", budget: 0, expenses: [] },
+  { id: "emergency-fund", name: "Emergency Fund", budget: 0, expenses: [] },
+  { id: "saving-fund", name: "Saving Fund", budget: 0, expenses: [] },
+  { id: "free-fund", name: "Free Fund", budget: 0, expenses: [] },
 ];
 
 export function useFundManager() {
@@ -131,7 +110,25 @@ export function useFundManager() {
     localStorage.setItem(BUDGET_KEY, totalBudget.toString());
   }, [totalBudget]);
 
-  const activeSection = sections.find((s) => s.id === activeSectionId) || null;
+  // Auto-calculate Free Fund budget
+  const sectionsWithFreeFund = useMemo(() => {
+    const otherBudgetSum = sections
+      .filter((s) => s.id !== "free-fund")
+      .reduce((sum, s) => sum + s.budget, 0);
+    const freeFundBudget = Math.max(0, totalBudget - otherBudgetSum);
+    return sections.map((s) =>
+      s.id === "free-fund" ? { ...s, budget: freeFundBudget } : s
+    );
+  }, [sections, totalBudget]);
+
+  const unallocatedBudget = useMemo(() => {
+    const allocated = sections
+      .filter((s) => s.id !== "free-fund")
+      .reduce((sum, s) => sum + s.budget, 0);
+    return totalBudget - allocated;
+  }, [sections, totalBudget]);
+
+  const activeSection = sectionsWithFreeFund.find((s) => s.id === activeSectionId) || null;
 
   const updateExpense = (sectionId: string, expenseId: string, updates: Partial<Omit<Expense, "id">>) => {
     setSections((prev) =>
@@ -143,8 +140,8 @@ export function useFundManager() {
     );
   };
 
-  const addExpense = (sectionId: string, description: string, estimated: number, spent: number) => {
-    const newExpense: Expense = { id: crypto.randomUUID(), description, estimated, spent };
+  const addExpense = (sectionId: string, description: string, estimated: number, spent: number, isFD?: boolean, preExistingFD?: number) => {
+    const newExpense: Expense = { id: crypto.randomUUID(), description, estimated, spent, isFD, preExistingFD };
     setSections((prev) =>
       prev.map((s) => (s.id === sectionId ? { ...s, expenses: [...s.expenses, newExpense] } : s))
     );
@@ -166,7 +163,6 @@ export function useFundManager() {
     );
   };
 
-  // Investment fund methods
   const updateSectionBudget = (sectionId: string, budget: number) => {
     setSections((prev) =>
       prev.map((s) => (s.id === sectionId ? { ...s, budget } : s))
@@ -201,25 +197,38 @@ export function useFundManager() {
   };
 
   const getSectionTotals = (section: FundSection) => {
-    // For investment fund, "spent" = budget allocated (goes out of bank)
     if (section.id === "investment-fund") {
-      return {
-        estimated: section.budget,
-        spent: section.budget,
-        remaining: 0,
-      };
+      return { estimated: section.budget, spent: section.budget, remaining: 0 };
     }
     return section.expenses.reduce(
-      (acc, e) => ({
-        estimated: acc.estimated + e.estimated,
-        spent: acc.spent + e.spent,
-        remaining: acc.remaining + (e.estimated - e.spent),
-      }),
+      (acc, e) => {
+        // Pre-existing FD doesn't affect current month counts
+        if (e.preExistingFD && e.preExistingFD > 0 && !e.spent) {
+          return acc;
+        }
+        return {
+          estimated: acc.estimated + e.estimated,
+          spent: acc.spent + e.spent,
+          remaining: acc.remaining + (e.estimated - e.spent),
+        };
+      },
       { estimated: 0, spent: 0, remaining: 0 }
     );
   };
 
-  const overallTotals = sections.reduce(
+  const getTotalFD = () => {
+    let totalFD = 0;
+    sectionsWithFreeFund.forEach((s) => {
+      s.expenses.forEach((e) => {
+        if (e.isFD) {
+          totalFD += e.spent + (e.preExistingFD || 0);
+        }
+      });
+    });
+    return totalFD;
+  };
+
+  const overallTotals = sectionsWithFreeFund.reduce(
     (acc, s) => {
       const t = getSectionTotals(s);
       return {
@@ -235,11 +244,12 @@ export function useFundManager() {
     totalBudget,
     totalSpent: overallTotals.spent,
     totalRemaining: totalBudget - overallTotals.spent,
-    sections: sections.map((s) => ({ ...s, totals: getSectionTotals(s) })),
+    unallocatedBudget,
+    sections: sectionsWithFreeFund.map((s) => ({ ...s, totals: getSectionTotals(s) })),
   };
 
   return {
-    sections,
+    sections: sectionsWithFreeFund,
     activeSectionId,
     setActiveSectionId,
     activeSection,
@@ -256,5 +266,7 @@ export function useFundManager() {
     getSectionTotals,
     overallTotals,
     dashboardData,
+    getTotalFD,
+    isFDEligible: (sectionId: string) => FD_ELIGIBLE_FUNDS.includes(sectionId),
   };
 }
