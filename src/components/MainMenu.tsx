@@ -1,4 +1,5 @@
-import { Wallet, Building2, BarChart3 } from "lucide-react";
+import { Wallet, Building2, BarChart3, Coins, Landmark, Activity } from "lucide-react";
+import { LiveIndexView } from "./LiveIndexView";
 
 interface MainMenuProps {
   onNavigate: (page: string) => void;
@@ -8,6 +9,9 @@ const menuCards = [
   { id: "expenses", label: "Expense Manager", icon: Wallet, desc: "Track & manage your monthly expenses", color: "bg-primary/10 text-primary" },
   { id: "properties", label: "Properties", icon: Building2, desc: "Track your real estate investments", color: "bg-accent/10 text-accent" },
   { id: "reports", label: "Reports", icon: BarChart3, desc: "Visual insights & net worth", color: "bg-success/10 text-success" },
+  { id: "metals", label: "Gold / Silver", icon: Coins, desc: "Manage your physical metal assets", color: "bg-amber-100 text-amber-600" },
+  { id: "deposits", label: "Deposits", icon: Landmark, desc: "FD, EPF & other savings", color: "bg-teal-100 text-teal-700" },
+  { id: "live-index", label: "Live Index", icon: Activity, desc: "Real-time market rates & indices", color: "bg-blue-100 text-blue-600" },
 ];
 
 export function MainMenu({ onNavigate }: MainMenuProps) {
@@ -17,6 +21,7 @@ export function MainMenu({ onNavigate }: MainMenuProps) {
         <h1 className="font-heading text-xl font-bold text-foreground">Welcome Back 👋</h1>
         <p className="text-sm text-muted-foreground mt-1">Manage your finances</p>
       </div>
+
       <div className="grid grid-cols-2 gap-4">
         {menuCards.map((card) => (
           <button

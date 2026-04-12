@@ -5,8 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Trash2, Check, X, HandCoins, Landmark } from "lucide-react";
 
-export function DebtPage() {
-  const { debts, loans, addDebt, updateDebt, deleteDebt, addLoan, updateLoan, deleteLoan, totalOutstanding } = useDebts();
+export function DebtPage(props: ReturnType<typeof useDebts>) {
+  const { debts, loans, addDebt, updateDebt, deleteDebt, addLoan, updateLoan, deleteLoan, totalOutstanding } = props;
 
   const [addingDebt, setAddingDebt] = useState(false);
   const [editDebtId, setEditDebtId] = useState<string | null>(null);
@@ -132,14 +132,14 @@ export function DebtPage() {
       </div>
       <Input type="date" value={loanForm.startDate} onChange={(e) => setLoanForm({ ...loanForm, startDate: e.target.value })} />
       <p className="text-xs text-muted-foreground">
-        Total Paid: <span className="font-medium text-foreground">₹{((parseFloat(loanForm.principalPaid) || 0) + (parseFloat(loanForm.interestPaid) || 0)).toLocaleString()}</span>
+        Total Paid: <span className="font-medium text-foreground">₹{((parseFloat(loanForm.principalPaid) || 0) + (parseFloat(loanForm.interestPaid) || 0)).toLocaleString('en-IN')}</span>
       </p>
     </div>
   );
 
   return (
     <div className="space-y-6">
-      <Tabs defaultValue="debts">
+      <Tabs defaultValue="loans">
         <TabsList className="w-full">
           <TabsTrigger value="debts" className="flex-1">Personal Debts</TabsTrigger>
           <TabsTrigger value="loans" className="flex-1">Loans</TabsTrigger>
@@ -150,11 +150,11 @@ export function DebtPage() {
             <div className="grid grid-cols-2 gap-3">
               <div className="rounded-xl bg-destructive/10 p-3 space-y-1">
                 <span className="text-xs text-muted-foreground block">I Owe</span>
-                <span className="font-heading font-bold text-sm text-destructive">₹{totalIOwe.toLocaleString()}</span>
+                <span className="font-heading font-bold text-sm text-destructive">₹{totalIOwe.toLocaleString('en-IN')}</span>
               </div>
               <div className="rounded-xl bg-primary/10 p-3 space-y-1">
                 <span className="text-xs text-muted-foreground block">Owed to Me</span>
-                <span className="font-heading font-bold text-sm text-primary">₹{totalOwedToMe.toLocaleString()}</span>
+                <span className="font-heading font-bold text-sm text-primary">₹{totalOwedToMe.toLocaleString('en-IN')}</span>
               </div>
             </div>
           )}
@@ -199,7 +199,7 @@ export function DebtPage() {
                     {d.type === "owe" ? "I Owe" : "Owed to Me"}
                   </span>
                 </div>
-                <p className="font-heading font-bold text-foreground mt-1">₹{d.amount.toLocaleString()}</p>
+                <p className="font-heading font-bold text-foreground mt-1">₹{d.amount.toLocaleString('en-IN')}</p>
                 {d.description && <p className="text-xs text-muted-foreground mt-1">{d.description}</p>}
                 <p className="text-xs text-muted-foreground mt-1">{d.date}</p>
               </div>
@@ -218,7 +218,7 @@ export function DebtPage() {
           {totalOutstanding > 0 && (
             <div className="rounded-xl bg-destructive/10 p-3 space-y-1">
               <span className="text-xs text-muted-foreground block">Total Outstanding</span>
-              <span className="font-heading font-bold text-sm text-destructive">₹{totalOutstanding.toLocaleString()}</span>
+              <span className="font-heading font-bold text-sm text-destructive">₹{totalOutstanding.toLocaleString('en-IN')}</span>
             </div>
           )}
 
@@ -267,15 +267,15 @@ export function DebtPage() {
                 <div className="grid grid-cols-3 gap-2 text-xs">
                   <div>
                     <span className="text-muted-foreground block">Sanctioned</span>
-                    <span className="font-heading font-medium">₹{l.sanctionedAmount.toLocaleString()}</span>
+                    <span className="font-heading font-medium">₹{l.sanctionedAmount.toLocaleString('en-IN')}</span>
                   </div>
                   <div>
                     <span className="text-muted-foreground block">Outstanding</span>
-                    <span className="font-heading font-medium text-destructive">₹{l.totalOutstanding.toLocaleString()}</span>
+                    <span className="font-heading font-medium text-destructive">₹{l.totalOutstanding.toLocaleString('en-IN')}</span>
                   </div>
                   <div>
                     <span className="text-muted-foreground block">Total Paid</span>
-                    <span className="font-heading font-medium text-primary">₹{totalPaid.toLocaleString()}</span>
+                    <span className="font-heading font-medium text-primary">₹{totalPaid.toLocaleString('en-IN')}</span>
                   </div>
                 </div>
                 <div className="space-y-1">

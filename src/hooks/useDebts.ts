@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Preferences } from "@capacitor/preferences";
 
 export interface PersonalDebt {
   id: string;
@@ -26,18 +27,57 @@ const DEBT_KEY = "expense-manager-debts";
 const LOAN_KEY = "expense-manager-loans";
 
 export function useDebts() {
-  const [debts, setDebts] = useState<PersonalDebt[]>(() => {
-    const stored = localStorage.getItem(DEBT_KEY);
-    return stored ? JSON.parse(stored) : [];
-  });
+  const [debts, setDebts] = useState<PersonalDebt[]>([]);
+  const [loans, setLoans] = useState<Loan[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const [loans, setLoans] = useState<Loan[]>(() => {
-    const stored = localStorage.getItem(LOAN_KEY);
-    return stored ? JSON.parse(stored) : [];
-  });
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const { value: storedDebts } = await Preferences.get({ key: DEBT_KEY });
+        const { value: storedLoans } = await Preferences.get({ key: LOAN_KEY });
 
-  useEffect(() => { localStorage.setItem(DEBT_KEY, JSON.stringify(debts)); }, [debts]);
-  useEffect(() => { localStorage.setItem(LOAN_KEY, JSON.stringify(loans)); }, [loans]);
+        if (storedDebts) {
+          setDebts(JSON.parse(storedDebts));
+        } else {
+          const local = localStorage.getItem(DEBT_KEY);
+          if (local) {
+            setDebts(JSON.parse(local));
+            await Preferences.set({ key: DEBT_KEY, value: local });
+            localStorage.removeItem(DEBT_KEY);
+          }
+        }
+
+        if (storedLoans) {
+          setLoans(JSON.parse(storedLoans));
+        } else {
+          const local = localStorage.getItem(LOAN_KEY);
+          if (local) {
+            setLoans(JSON.parse(local));
+            await Preferences.set({ key: LOAN_KEY, value: local });
+            localStorage.removeItem(LOAN_KEY);
+          }
+        }
+      } catch (e) {
+        console.error("Error loading debts/loans:", e);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadData();
+  }, []);
+
+  useEffect(() => {
+    if (!loading) {
+      Preferences.set({ key: DEBT_KEY, value: JSON.stringify(debts) });
+    }
+  }, [debts, loading]);
+
+  useEffect(() => {
+    if (!loading) {
+      Preferences.set({ key: LOAN_KEY, value: JSON.stringify(loans) });
+    }
+  }, [loans, loading]);
 
   const addDebt = (d: Omit<PersonalDebt, "id">) => setDebts((p) => [...p, { ...d, id: crypto.randomUUID() }]);
   const updateDebt = (id: string, u: Partial<Omit<PersonalDebt, "id">>) => setDebts((p) => p.map((d) => (d.id === id ? { ...d, ...u } : d)));
@@ -47,7 +87,7 @@ export function useDebts() {
   const updateLoan = (id: string, u: Partial<Omit<Loan, "id">>) => setLoans((p) => p.map((l) => (l.id === id ? { ...l, ...u } : l)));
   const deleteLoan = (id: string) => setLoans((p) => p.filter((l) => l.id !== id));
 
-  const totalOutstanding = loans.reduce((sum, l) => sum + l.totalOutstanding, 0);
+  const totalOutstanding = loans.reduce((sum, l) => sum + (l.totalOutstanding || 0), 0);
 
-  return { debts, loans, addDebt, updateDebt, deleteDebt, addLoan, updateLoan, deleteLoan, totalOutstanding };
+  return { debts, loans, addDebt, updateDebt, deleteDebt, addLoan, updateLoan, deleteLoan, totalOutstanding, loading };
 }

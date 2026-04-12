@@ -106,8 +106,8 @@ export function UploadExcelDialog({ onImport }: UploadExcelDialogProps) {
                     {preview.map((exp, i) => (
                       <tr key={i} className="border-t">
                         <td className="p-2">{exp.description}</td>
-                        <td className="p-2 text-right">₹{exp.estimated.toLocaleString()}</td>
-                        <td className="p-2 text-right">₹{exp.spent.toLocaleString()}</td>
+                        <td className="p-2 text-right">₹{exp.estimated.toLocaleString('en-IN')}</td>
+                        <td className="p-2 text-right">₹{exp.spent.toLocaleString('en-IN')}</td>
                       </tr>
                     ))}
                   </tbody>

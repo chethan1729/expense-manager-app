@@ -5,8 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Plus, Trash2, Check, X, TrendingUp, TrendingDown, Building2 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 
-export function PropertiesPage() {
-  const { properties, addProperty, updateProperty, deleteProperty, totalPropertyValue, totalPurchaseValue } = useProperties();
+export function PropertiesPage(props: ReturnType<typeof useProperties>) {
+  const { properties, addProperty, updateProperty, deleteProperty, totalPropertyValue, totalPurchaseValue } = props;
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({ name: "", description: "", totalSqft: "", purchaseRatePerSqft: "", currentRatePerSqft: "" });
@@ -72,8 +72,8 @@ export function PropertiesPage() {
       </div>
       {(parseFloat(form.totalSqft) || 0) > 0 && (parseFloat(form.purchaseRatePerSqft) || 0) > 0 && (
         <p className="text-xs text-muted-foreground">
-          Purchase value: <span className="font-medium text-foreground">₹{((parseFloat(form.totalSqft) || 0) * (parseFloat(form.purchaseRatePerSqft) || 0)).toLocaleString()}</span>
-          {" → "}Current value: <span className="font-medium text-foreground">₹{((parseFloat(form.totalSqft) || 0) * (parseFloat(form.currentRatePerSqft) || 0)).toLocaleString()}</span>
+          Purchase value: <span className="font-medium text-foreground">₹{((parseFloat(form.totalSqft) || 0) * (parseFloat(form.purchaseRatePerSqft) || 0)).toLocaleString('en-IN')}</span>
+          {" → "}Current value: <span className="font-medium text-foreground">₹{((parseFloat(form.totalSqft) || 0) * (parseFloat(form.currentRatePerSqft) || 0)).toLocaleString('en-IN')}</span>
         </p>
       )}
       <div className="flex gap-2 justify-between">
@@ -96,11 +96,11 @@ export function PropertiesPage() {
         <div className="grid grid-cols-3 gap-3">
           <div className="rounded-xl bg-primary/10 p-3 space-y-1">
             <span className="text-xs text-muted-foreground block">Purchase Value</span>
-            <span className="font-heading font-bold text-sm text-primary">₹{totalPurchaseValue.toLocaleString()}</span>
+            <span className="font-heading font-bold text-sm text-primary">₹{totalPurchaseValue.toLocaleString('en-IN')}</span>
           </div>
           <div className="rounded-xl bg-accent/10 p-3 space-y-1">
             <span className="text-xs text-muted-foreground block">Current Value</span>
-            <span className="font-heading font-bold text-sm text-accent">₹{totalPropertyValue.toLocaleString()}</span>
+            <span className="font-heading font-bold text-sm text-accent">₹{totalPropertyValue.toLocaleString('en-IN')}</span>
           </div>
           <div className="rounded-xl bg-muted/50 p-3 space-y-1">
             <span className="text-xs text-muted-foreground block">Change</span>
@@ -137,11 +137,11 @@ export function PropertiesPage() {
             <div className="grid grid-cols-3 gap-2 text-xs">
               <div>
                 <span className="text-muted-foreground block">Purchase</span>
-                <span className="font-heading font-medium">₹{purchaseVal.toLocaleString()}</span>
+                <span className="font-heading font-medium">₹{purchaseVal.toLocaleString('en-IN')}</span>
               </div>
               <div>
                 <span className="text-muted-foreground block">Current</span>
-                <span className="font-heading font-medium">₹{currentVal.toLocaleString()}</span>
+                <span className="font-heading font-medium">₹{currentVal.toLocaleString('en-IN')}</span>
               </div>
               <div>
                 <span className="text-muted-foreground block">Change</span>
@@ -151,7 +151,7 @@ export function PropertiesPage() {
                 </span>
               </div>
             </div>
-            <p className="text-xs text-muted-foreground">{p.totalSqft} sqft · ₹{p.purchaseRatePerSqft.toLocaleString()}/sqft → ₹{p.currentRatePerSqft.toLocaleString()}/sqft</p>
+            <p className="text-xs text-muted-foreground">{p.totalSqft} sqft · ₹{p.purchaseRatePerSqft.toLocaleString('en-IN')}/sqft → ₹{p.currentRatePerSqft.toLocaleString('en-IN')}/sqft</p>
           </div>
         );
       })}
