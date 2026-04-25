@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Wallet, TrendingDown, TrendingUp, Pencil, Check, X, GripVertical } from "lucide-react";
+import { Wallet, TrendingDown, TrendingUp, Pencil, Check, X, GripVertical, TrendingUpIcon, ChevronRight, Coins } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import type { FundSection } from "@/hooks/useExpenses";
@@ -264,10 +264,12 @@ export function DashboardView({ dashboardData, onSelectSection, onUpdateBudget, 
           onDragEnd={handleDragEnd}
         >
           <SortableContext
-            items={dashboardData.sections.map((s) => s.id)}
+            items={dashboardData.sections.filter((s) => !["hobby-fund", "ai-fund", "free-fund"].includes(s.id)).map((s) => s.id)}
             strategy={verticalListSortingStrategy}
           >
-            {dashboardData.sections.map((section) => (
+            {dashboardData.sections
+              .filter((s) => !["hobby-fund", "ai-fund", "free-fund"].includes(s.id))
+              .map((section) => (
               <SortableFundItem
                 key={section.id}
                 section={section}

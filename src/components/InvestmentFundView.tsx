@@ -13,7 +13,7 @@ import type { InvestmentItem } from "@/hooks/useExpenses";
 import { AppLauncher } from "@capacitor/app-launcher";
 import { cn } from "@/lib/utils";
 
-const BROKER_APPS = [
+export const BROKER_APPS = [
   { name: "Sharekhan", package: "com.sharekhan.androidsharemobile" },
   { name: "Kite", package: "com.zerodha.kite3" },
   { name: "Coin", package: "com.zerodha.coin" },
@@ -31,7 +31,7 @@ function BrokerSearch({ value, onChange, placeholder }: { value: string; onChang
   const [open, setOpen] = useState(false);
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={setOpen} modal={true}>
       <PopoverTrigger asChild>
         <Button
           variant="outline"
@@ -43,7 +43,12 @@ function BrokerSearch({ value, onChange, placeholder }: { value: string; onChang
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[300px] p-0" align="start">
+      <PopoverContent 
+        className="w-[300px] p-0" 
+        align="start"
+        onWheel={(e) => e.stopPropagation()}
+        onTouchMove={(e) => e.stopPropagation()}
+      >
         <Command>
           <CommandInput placeholder="Search broker..." />
           <CommandList>

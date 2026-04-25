@@ -44,6 +44,22 @@ export const useNetWorthHistory = () => {
     });
   }, []);
 
+  const resetHistory = useCallback((netWorth: number, netWorthWithLoans: number) => {
+    const now = new Date();
+    const dateKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    
+    const initialSnapshot: NetWorthSnapshot = {
+      date: dateKey,
+      netWorth: Math.ceil(netWorth),
+      netWorthWithLoans: Math.ceil(netWorthWithLoans),
+      timestamp: now.toISOString(),
+    };
+    
+    setHistory([initialSnapshot]);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify([initialSnapshot]));
+    return initialSnapshot;
+  }, []);
+
   // Get the last N days of history
   const getRecentHistory = useCallback((days: number = 30): NetWorthSnapshot[] => {
     return history.slice(-days);
@@ -52,6 +68,7 @@ export const useNetWorthHistory = () => {
   return {
     history,
     recordSnapshot,
+    resetHistory,
     getRecentHistory,
   };
 };

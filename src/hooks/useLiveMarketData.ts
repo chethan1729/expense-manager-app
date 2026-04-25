@@ -17,6 +17,7 @@ const SYMBOLS = {
   'NVDA': 'Nvidia',
   'AVGO': 'Broadcom',
   'TSM': 'TSM',
+  'HDFCBANK.NS': 'HDFC Bank',
   'BTC-USD': 'Bitcoin',
   'RENDER-USD': 'Render',
   'FET-USD': 'Fetch.ai',

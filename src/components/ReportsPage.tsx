@@ -1,7 +1,22 @@
 import { useState, useMemo } from "react";
-import { PieChart, Pie, Cell, Legend, Tooltip, ResponsiveContainer } from "recharts";
-import { TrendingUp, IndianRupee, ChevronRight, ChevronDown, BarChart3, Landmark, Wallet } from "lucide-react";
+import { PieChart, Pie, Cell, Legend, Tooltip, ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid } from "recharts";
+import { TrendingUp, IndianRupee, ChevronRight, ChevronDown, BarChart3, Landmark, Wallet, Calendar, RotateCcw } from "lucide-react";
 import type { FundSection } from "@/hooks/useExpenses";
+import type { Transaction } from "@/hooks/useTransactions";
+import { useNetWorthHistory } from "@/hooks/useNetWorthHistory";
+import { 
+  AlertDialog, 
+  AlertDialogAction, 
+  AlertDialogCancel, 
+  AlertDialogContent, 
+  AlertDialogDescription, 
+  AlertDialogFooter, 
+  AlertDialogHeader, 
+  AlertDialogTitle, 
+  AlertDialogTrigger 
+} from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 interface ReportsPageProps {
   dashboardData: {
@@ -19,6 +34,11 @@ interface ReportsPageProps {
   totalLockedIn?: number;
   totalMetalsValue?: number;
   totalPersonalDebt?: number;
+  transactions?: Record<string, Transaction[]>;
+  currentMonth?: number;
+  currentYear?: number;
+  onMonthChange?: (month: number) => void;
+  onYearChange?: (year: number) => void;
 }
 
 const INVESTMENT_COLORS = [
@@ -131,11 +151,19 @@ export function ReportsPage({
   totalSBBalance = 0, 
   totalLockedIn = 0,
   totalMetalsValue = 0,
-  totalPersonalDebt = 0
+  totalPersonalDebt = 0,
+  transactions = {},
+  currentMonth = 0,
+  currentYear = 2026,
+  onMonthChange,
+  onYearChange,
 }: ReportsPageProps) {
   const { totalBudget, totalSpent, sections } = dashboardData;
   const [expanded, setExpanded] = useState<string | null>(null);
   const toggle = (id: string) => setExpanded(prev => prev === id ? null : id);
+  
+  const { getRecentHistory, resetHistory } = useNetWorthHistory();
+  const netWorthHistory = getRecentHistory(90); // Get last 90 days
 
   const floatingAmount = Math.max(0, totalBudget - totalSpent - totalFD);
 
@@ -214,6 +242,11 @@ export function ReportsPage({
   const netWorthWithLoans = netWorth - totalOutstanding;
   const totalFundBalance = fundData.reduce((s, d) => s + d.value, 0);
 
+  const handleResetHistory = () => {
+    resetHistory(netWorth, netWorthWithLoans);
+    toast.success("Net worth trend graph has been reset");
+  };
+
   // Availability doughnut data
   const availData = useMemo(() => [
     { name: "Savings Bank", value: Math.max(0, totalSBBalance) },
@@ -247,6 +280,139 @@ export function ReportsPage({
           Net worth with loans: <span className="font-semibold">₹{netWorthWithLoans.toLocaleString('en-IN')}</span>
         </p>
       </div>
+
+      {/* Net Worth Trend Graph */}
+      {netWorthHistory.length > 0 && (
+        <div className="rounded-xl border bg-card p-4 space-y-3">
+          <div 
+            className="flex items-center justify-between cursor-pointer"
+            onClick={() => toggle("networth-graph")}
+          >
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                <TrendingUp className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-sm">Net Worth Trend</h3>
+                <p className="text-xs text-muted-foreground">Last 90 days</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <RotateCcw className="h-4 w-4" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Reset Trend Graph?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will clear all historical snapshots and start a new trend from today. This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleResetHistory} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                      Reset Graph
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+              <ChevronDown className={`h-5 w-5 text-muted-foreground transition-transform ${expanded === "networth-graph" ? "rotate-180" : ""}`} />
+            </div>
+          </div>
+
+          {expanded === "networth-graph" && (
+            <div className="space-y-4 pt-2 border-t">
+              <div className="h-80 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={netWorthHistory} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.1)" />
+                    <XAxis 
+                      dataKey="date" 
+                      tick={{ fontSize: 12 }}
+                      tickFormatter={(date) => {
+                        const d = new Date(date);
+                        return `${d.getMonth() + 1}/${d.getDate()}`;
+                      }}
+                    />
+                    <YAxis 
+                      tick={{ fontSize: 12 }}
+                      tickFormatter={(value) => `₹${(value / 100000).toFixed(0)}L`}
+                    />
+                    <Tooltip
+                      formatter={(value: number) => [
+                        `₹${value.toLocaleString("en-IN")}`,
+                        value === (netWorthHistory[0]?.netWorth || 0) ? "Net Worth" : "Net Worth with Loans"
+                      ]}
+                      labelFormatter={(date) => {
+                        const d = new Date(date);
+                        return d.toLocaleDateString("en-IN");
+                      }}
+                      contentStyle={{
+                        backgroundColor: "rgba(0, 0, 0, 0.8)",
+                        border: "1px solid rgba(255, 255, 255, 0.1)",
+                        borderRadius: "8px",
+                        color: "#fff"
+                      }}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="netWorth" 
+                      stroke="#10b981" 
+                      strokeWidth={2}
+                      dot={false}
+                      name="Net Worth"
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="netWorthWithLoans" 
+                      stroke="#f59e0b" 
+                      strokeWidth={2}
+                      dot={false}
+                      name="Net Worth with Loans"
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Statistics */}
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div className="rounded-lg bg-emerald-50 dark:bg-emerald-900/20 p-3 space-y-1">
+                  <p className="text-muted-foreground uppercase font-semibold">Highest Net Worth</p>
+                  <p className="font-bold text-emerald-700">
+                    ₹{Math.max(...netWorthHistory.map(h => h.netWorth)).toLocaleString('en-IN')}
+                  </p>
+                </div>
+                <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 p-3 space-y-1">
+                  <p className="text-muted-foreground uppercase font-semibold">Current Net Worth</p>
+                  <p className="font-bold text-amber-700">
+                    ₹{netWorth.toLocaleString('en-IN')}
+                  </p>
+                </div>
+                <div className="rounded-lg bg-blue-50 dark:bg-blue-900/20 p-3 space-y-1">
+                  <p className="text-muted-foreground uppercase font-semibold">Lowest Net Worth</p>
+                  <p className="font-bold text-blue-700">
+                    ₹{Math.min(...netWorthHistory.map(h => h.netWorth)).toLocaleString('en-IN')}
+                  </p>
+                </div>
+                <div className="rounded-lg bg-purple-50 dark:bg-purple-900/20 p-3 space-y-1">
+                  <p className="text-muted-foreground uppercase font-semibold">Change</p>
+                  <p className={`font-bold ${(netWorth - netWorthHistory[0].netWorth) >= 0 ? "text-green-600" : "text-red-600"}`}>
+                    {(netWorth - netWorthHistory[0].netWorth) >= 0 ? "+" : ""}₹{(netWorth - netWorthHistory[0].netWorth).toLocaleString('en-IN')}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Report Cards */}
       {/* 1. Investments */}
@@ -432,6 +598,168 @@ export function ReportsPage({
           )}
         </div>
       </ReportCard>
+
+      {/* 4. Daily Expenses Calendar */}
+      {transactions && Object.keys(transactions).length > 0 && (
+        <ReportCard
+          title="Daily Expenses"
+          subtitle="Daily transaction breakdown"
+          icon={Calendar}
+          iconColor="bg-orange-100 text-orange-700"
+          expanded={expanded === "daily-expenses"}
+          onToggle={() => toggle("daily-expenses")}
+        >
+          <div className="space-y-3">
+            {(() => {
+              const monthNames = [
+                "January", "February", "March", "April", "May", "June",
+                "July", "August", "September", "October", "November", "December"
+              ];
+              
+              const monthKey = `${currentYear}-${(currentMonth + 1).toString().padStart(2, "0")}`;
+              const monthTransactions = transactions[monthKey] || [];
+              
+              // Calculate daily totals
+              const dailyTotals: Record<string, number> = {};
+              monthTransactions.forEach((transaction) => {
+                const date = transaction.date;
+                dailyTotals[date] = (dailyTotals[date] || 0) + transaction.amount;
+              });
+
+              const monthTotal = Object.values(dailyTotals).reduce((sum, val) => sum + val, 0);
+              const daysWithTransactions = Object.keys(dailyTotals).length;
+
+              const getDaysInMonth = (month: number, year: number): number => {
+                return new Date(year, month + 1, 0).getDate();
+              };
+
+              const getFirstDayOfMonth = (month: number, year: number): number => {
+                return new Date(year, month, 1).getDay();
+              };
+
+              const daysInMonth = getDaysInMonth(currentMonth, currentYear);
+              const firstDay = getFirstDayOfMonth(currentMonth, currentYear);
+              const days: (number | null)[] = [];
+
+              for (let i = 0; i < firstDay; i++) {
+                days.push(null);
+              }
+              for (let i = 1; i <= daysInMonth; i++) {
+                days.push(i);
+              }
+
+              const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+              // Heatmap color function
+              const getHeatmapColor = (amount: number) => {
+                if (amount <= 100) {
+                  return "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-700";
+                } else if (amount <= 1000) {
+                  return "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-700";
+                } else if (amount <= 5000) {
+                  return "bg-red-300 dark:bg-red-800/50 text-red-900 dark:text-red-300 border border-red-400 dark:border-red-600";
+                } else {
+                  return "bg-red-600 dark:bg-red-900 text-white border border-red-700 dark:border-red-800";
+                }
+              };
+
+              // Payment mode breakdown
+              const upiTotal = monthTransactions
+                .filter((t) => !t.paymentMode || t.paymentMode === 'upi')
+                .reduce((sum, t) => sum + t.amount, 0);
+              const cardTotal = monthTransactions
+                .filter((t) => t.paymentMode === 'credit-card')
+                .reduce((sum, t) => sum + t.amount, 0);
+              const cashTotal = monthTransactions
+                .filter((t) => t.paymentMode === 'cash')
+                .reduce((sum, t) => sum + t.amount, 0);
+
+              return (
+                <div className="space-y-4">
+                  {/* Summary */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="rounded-lg bg-orange-50 dark:bg-orange-900/20 p-3 space-y-0.5">
+                      <p className="text-[10px] text-muted-foreground uppercase">Total This Month</p>
+                      <p className="font-bold text-orange-600">₹{monthTotal.toLocaleString('en-IN')}</p>
+                    </div>
+                    <div className="rounded-lg bg-blue-50 dark:bg-blue-900/20 p-3 space-y-0.5">
+                      <p className="text-[10px] text-muted-foreground uppercase">Avg Per Day</p>
+                      <p className="font-bold text-blue-600">
+                        ₹{daysWithTransactions > 0 ? Math.ceil(monthTotal / daysWithTransactions).toLocaleString('en-IN') : '0'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Mini Calendar */}
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground mb-2">
+                      {monthNames[currentMonth]} {currentYear}
+                    </p>
+                    <div className="grid grid-cols-7 gap-1">
+                      {weekDays.map((day) => (
+                        <div key={day} className="text-center text-[10px] font-semibold text-muted-foreground p-1">
+                          {day}
+                        </div>
+                      ))}
+                      {days.map((day, index) => {
+                        const dateStr = day
+                          ? `${currentYear}-${(currentMonth + 1).toString().padStart(2, "0")}-${day.toString().padStart(2, "0")}`
+                          : null;
+                        const daily = dateStr ? dailyTotals[dateStr] || 0 : 0;
+                        const hasTransactions = dateStr && dailyTotals[dateStr];
+
+                        return (
+                          <div key={index} className="aspect-square">
+                            {day ? (
+                              <div
+                                className={`h-full rounded p-1 text-[10px] font-semibold flex flex-col items-center justify-center transition-all ${
+                                  hasTransactions
+                                    ? getHeatmapColor(daily)
+                                    : "bg-muted/30 text-muted-foreground"
+                                }`}
+                              >
+                                <span>{day}</span>
+                                {hasTransactions && (
+                                  <span className="text-[8px] leading-tight">
+                                    ₹{Math.ceil(daily).toLocaleString('en-IN')}
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <div />
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Payment Mode Breakdown */}
+                  {monthTransactions.length > 0 && (
+                    <div className="space-y-3 border-t pt-4">
+                      <h4 className="text-sm font-semibold">Payment Mode Breakdown</h4>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div className="rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 p-3 text-center space-y-1">
+                          <p className="text-[10px] font-semibold text-muted-foreground uppercase">UPI / Net Banking</p>
+                          <p className="text-sm font-bold text-blue-700 dark:text-blue-400">₹{upiTotal.toLocaleString("en-IN")}</p>
+                        </div>
+                        <div className="rounded-lg bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700 p-3 text-center space-y-1">
+                          <p className="text-[10px] font-semibold text-muted-foreground uppercase">Credit Card</p>
+                          <p className="text-sm font-bold text-orange-700 dark:text-orange-400">₹{cardTotal.toLocaleString("en-IN")}</p>
+                        </div>
+                        <div className="rounded-lg bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-700 p-3 text-center space-y-1">
+                          <p className="text-[10px] font-semibold text-muted-foreground uppercase">Cash</p>
+                          <p className="text-sm font-bold text-purple-700 dark:text-purple-400">₹{cashTotal.toLocaleString("en-IN")}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+          </div>
+        </ReportCard>
+      )}
     </div>
   );
 }

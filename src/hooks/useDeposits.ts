@@ -18,12 +18,14 @@ export interface EPFEntry {
   id: string;
   totalAccumulated: number;
   lastUpdated: string;
+  isLockedIn?: boolean;
 }
 
 export interface OtherSavingsEntry {
   id: string;
   name: string;
   totalAmount: number;
+  isLockedIn?: boolean;
 }
 
 export interface DepositsData {
@@ -100,17 +102,17 @@ export function useDeposits() {
   // FDs sorted by nearest maturity date
   const sortedFDs = [...data.fds].sort((a, b) => new Date(a.maturityDate).getTime() - new Date(b.maturityDate).getTime());
 
-  const setEPF = (totalAccumulated: number) => {
+  const setEPF = (totalAccumulated: number, isLockedIn?: boolean) => {
     setData(prev => ({
       ...prev,
-      epf: { id: prev.epf?.id || crypto.randomUUID(), totalAccumulated, lastUpdated: new Date().toISOString().split('T')[0] },
+      epf: { id: prev.epf?.id || crypto.randomUUID(), totalAccumulated, lastUpdated: new Date().toISOString().split('T')[0], isLockedIn },
     }));
   };
 
-  const addOtherSavings = (name: string, totalAmount: number) => {
+  const addOtherSavings = (name: string, totalAmount: number, isLockedIn?: boolean) => {
     setData(prev => ({
       ...prev,
-      otherSavings: [...prev.otherSavings, { id: crypto.randomUUID(), name, totalAmount }],
+      otherSavings: [...prev.otherSavings, { id: crypto.randomUUID(), name, totalAmount, isLockedIn }],
     }));
   };
 

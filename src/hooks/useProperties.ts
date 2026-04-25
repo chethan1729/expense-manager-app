@@ -8,6 +8,9 @@ export interface Property {
   totalSqft: number;
   purchaseRatePerSqft: number;
   currentRatePerSqft: number;
+  image?: string;        // Base64 encoded property photo
+  locationUrl?: string;  // Google Maps URL
+  driveUrl?: string;     // Google Drive folder link
 }
 
 const STORAGE_KEY = "expense-manager-properties";

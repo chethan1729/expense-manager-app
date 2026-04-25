@@ -4,6 +4,10 @@ import { useFundManager, BALANCE_TRACKING_FUNDS, SIMPLE_FUNDS } from "@/hooks/us
 import { useProperties } from "@/hooks/useProperties";
 import { useDebts } from "@/hooks/useDebts";
 import { useDeposits } from "@/hooks/useDeposits";
+import { useGoals } from "@/hooks/useGoals";
+import { useTransactions } from "@/hooks/useTransactions";
+import { useNetWorthHistory } from "@/hooks/useNetWorthHistory";
+import { useAutomatedTransactions } from "@/hooks/useAutomatedTransactions";
 import { ExpenseCard } from "@/components/ExpenseCard";
 import { AddExpenseDialog } from "@/components/AddExpenseDialog";
 import { UploadExcelDialog } from "@/components/UploadExcelDialog";
@@ -13,12 +17,17 @@ import { EmergencyFundView } from "@/components/EmergencyFundView";
 import { BottomNav } from "@/components/BottomNav";
 import { MainMenu } from "@/components/MainMenu";
 import { PropertiesPage } from "@/components/PropertiesPage";
+import { GoalsPage } from "@/components/GoalsPage";
 import { ReportsPage } from "@/components/ReportsPage";
 import { DebtPage } from "@/components/DebtPage";
 import { PreciousMetalsPage } from "@/components/PreciousMetalsPage";
 import { usePreciousMetals } from "@/hooks/usePreciousMetals";
 import { DepositsPage } from "@/components/DepositsPage";
 import { LiveIndexView } from "@/components/LiveIndexView";
+import { TransactionsPage } from "@/components/TransactionsPage";
+import { AutomatedTransactionsPage } from "@/components/AutomatedTransactionsPage";
+import { BackupRestorePage } from "@/components/BackupRestorePage";
+import { InvestmentPlannerPage } from "@/components/InvestmentPlannerPage";
 import expenseLogo from "@/assets/expense.png";
 import { Wallet, TrendingDown, TrendingUp, IndianRupee, ArrowLeft } from "lucide-react";
 import {
@@ -30,7 +39,9 @@ const Index = () => {
   const propertiesHook = useProperties();
   const debtsHook = useDebts();
   const metalsHook = usePreciousMetals();
+  const goalsHook = useGoals();
   const depositsHook = useDeposits();
+  const transactionsHook = useTransactions();
   
   const { totalPropertyValue, loading: propertiesLoading } = propertiesHook;
   const { debts, totalOutstanding, loading: debtsLoading } = debtsHook;
@@ -49,7 +60,33 @@ const Index = () => {
     isFDEligible, isBalanceTracking, isSimpleFund
   } = fundManager;
 
-  const [activeTab, setActiveTab] = useState("expenses");
+  const {
+    transactions,
+    addTransaction,
+    updateTransaction,
+    deleteTransaction,
+    getTransactionsForMonth,
+    getMonthKey,
+  } = transactionsHook;
+
+  // Initialize automated transactions hook
+  const automatedTransactionsHook = useAutomatedTransactions(
+    sections.map((section) => ({
+      id: section.id,
+      name: section.name,
+      expenses: section.expenses.map((exp) => ({
+        id: exp.id,
+        description: exp.description,
+      })),
+    }))
+  );
+
+  const { recordSnapshot } = useNetWorthHistory();
+
+  const monthKey = getMonthKey(new Date(currentYear, currentMonth, 1));
+  const monthTransactions = getTransactionsForMonth(monthKey);
+
+  const [activeTab, setActiveTab] = useState("main");
   const [mainMenuPage, setMainMenuPage] = useState<string | null>(null);
 
   const isHydrated = !fundLoading && !propertiesLoading && !debtsLoading;
@@ -65,6 +102,35 @@ const Index = () => {
   const totalPersonalOwe = debts
     .filter((d) => d.type === "owe")
     .reduce((sum, d) => sum + d.amount, 0);
+
+  // Helper: Get expenses for a fund  
+  const getExpensesForFund = (fundId: string) => {
+    const section = sections.find(s => s.id === fundId);
+    return section?.expenses || [];
+  };
+
+  const handleRecordTransaction = (date: string, fundId: string, amount: number, expenseId?: string, paymentMode?: string, automatedId?: string) => {
+    addTransaction(date, fundId as TransactionFundType, amount, expenseId, undefined, paymentMode as PaymentMode, automatedId);
+    
+    // Update the expense's spent amount
+    if (fundId === "daily-expenses" && expenseId) {
+      const expense = getExpensesForFund(fundId).find((e) => e.id === expenseId);
+      if (expense) {
+        updateExpense(fundId, expenseId, {
+          spent: (expense.spent || 0) + amount,
+        });
+      }
+    } else if (fundId === "wishlist-fund" || fundId === "hobby-fund") {
+      // For balance tracking funds, first find the matching expense
+      const fundExpenses = getExpensesForFund(fundId);
+      if (fundExpenses.length > 0) {
+        const expense = fundExpenses[0];
+        updateExpense(fundId, expense.id, {
+          spent: (expense.spent || 0) + amount,
+        });
+      }
+    }
+  };
 
   // Summary cards for top of section views (only for non-balance-tracking sections)
   const summaryCards = totals && !isInvestment && !isBalanceTracking(activeSectionId)
@@ -85,12 +151,75 @@ const Index = () => {
         { label: "This Month", value: totals.estimated, icon: Wallet, color: "text-primary", bg: "bg-primary/10" },
         { label: "Used", value: totals.spent, icon: TrendingDown, color: "text-accent", bg: "bg-accent/10" },
         {
-          label: "Balance", value: (totals as any).currentBalance ?? (totals.estimated - totals.spent), icon: TrendingUp,
-          color: ((totals as any).currentBalance ?? 0) < 0 ? "text-destructive" : "text-emerald-600",
-          bg: ((totals as any).currentBalance ?? 0) < 0 ? "bg-destructive/10" : "bg-emerald-50 dark:bg-emerald-900/20",
+          label: "Balance", value: (totals as { currentBalance?: number }).currentBalance ?? (totals.estimated - totals.spent), icon: TrendingUp,
+          color: ((totals as { currentBalance?: number }).currentBalance ?? 0) < 0 ? "text-destructive" : "text-emerald-600",
+          bg: ((totals as { currentBalance?: number }).currentBalance ?? 0) < 0 ? "bg-destructive/10" : "bg-emerald-50 dark:bg-emerald-900/20",
         },
       ]
     : [];
+
+  // Handle approval of automated transactions
+  const handleApproveAutomatedTransaction = (
+    transactionId: string,
+    fundId: string,
+    expenseId: string,
+    paymentMode?: "upi" | "credit-card" | "net-banking" | "cash"
+  ) => {
+    // Find the transaction
+    const transaction = automatedTransactionsHook.pendingTransactions.find(
+      (t) => t.id === transactionId
+    );
+    if (!transaction) return;
+
+    // Record the transaction in the normal transactions system
+    handleRecordTransaction(
+      transaction.date,
+      fundId,
+      transaction.amount,
+      expenseId,
+      paymentMode,
+      transactionId.split('-').slice(2).join('-') // The hash part of the id
+    );
+
+    // Approve in automated transactions system
+    automatedTransactionsHook.approveTransaction(
+      transactionId,
+      fundId,
+      expenseId,
+      paymentMode
+    );
+  };
+
+  const handleSyncDeleteTransaction = (id: string, monthKey: string) => {
+    const list = getTransactionsForMonth(monthKey);
+    const transaction = list.find(t => t.id === id);
+    if (!transaction) return;
+
+    if (transaction.automatedId) {
+      automatedTransactionsHook.unprocessTransaction(transaction.automatedId);
+    }
+    
+    // Reverse the expense amount
+    const { fundId, expenseId, amount } = transaction;
+    if (fundId === "daily-expenses" && expenseId) {
+      const expense = getExpensesForFund(fundId).find((e) => e.id === expenseId);
+      if (expense) {
+        updateExpense(fundId, expenseId, {
+          spent: Math.max(0, (expense.spent || 0) - amount),
+        });
+      }
+    } else if (fundId === "wishlist-fund" || fundId === "hobby-fund") {
+      const fundExpenses = getExpensesForFund(fundId);
+      if (fundExpenses.length > 0) {
+        const expense = fundExpenses[0];
+        updateExpense(fundId, expense.id, {
+          spent: Math.max(0, (expense.spent || 0) - amount),
+        });
+      }
+    }
+
+    deleteTransaction(id, monthKey);
+  };
 
   const handleMainNavigate = (page: string) => {
     if (page === "expenses") {
@@ -122,6 +251,70 @@ const Index = () => {
     };
   }, [mainMenuPage, activeSectionId, activeTab, setActiveSectionId, setActiveTab, setMainMenuPage]);
 
+  // Daily networth recording at 11:59 PM
+  useEffect(() => {
+    if (!isHydrated) return;
+
+    const recordNetWorthSnapshot = () => {
+      // Calculate current networth using the EXACT same formula as ReportsPage
+      const fullTotalFD = getTotalFD() + depositsTotalFD;
+      
+      const monthlyRemaining = dashboardData.sections
+        .filter(s => s.id === "daily-expenses" || s.id === "free-fund")
+        .reduce((sum, s) => sum + (s.totals.remaining || 0), 0);
+      
+      const cumulativeTrackingBalance = dashboardData.sections
+        .filter(s => ["hobby-fund", "loan-fund", "wishlist-fund", "learning-fund", "emergency-fund", "saving-fund"].includes(s.id))
+        .reduce((sum, s) => sum + (s.totals.currentBalance || 0), 0);
+
+      const floatingAmount = Math.max(0, totalBudget - dashboardData.totalSpent - fullTotalFD);
+
+      const currentNetWorth = totalPropertyValue + totalInvestedSummary + metalsTotalValue + fullTotalFD + totalEPF + cumulativeTrackingBalance + monthlyRemaining + floatingAmount - totalPersonalOwe;
+      const currentNetWorthWithLoans = currentNetWorth - totalOutstanding;
+
+      recordSnapshot(Math.ceil(currentNetWorth), Math.ceil(currentNetWorthWithLoans));
+    };
+
+    const scheduleNetWorthRecording = () => {
+      const now = new Date();
+      const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+      
+      // Check if we already have a snapshot for today
+      try {
+        const saved = localStorage.getItem("net-worth-history");
+        const existingSnapshots = saved ? JSON.parse(saved) : [];
+        const hasSnapshotToday = existingSnapshots.some((s: { date: string }) => s.date === today);
+
+        // If no snapshot for today, record one immediately
+        if (!hasSnapshotToday) {
+          recordNetWorthSnapshot();
+        }
+      } catch (error) {
+        // If there's any error reading localStorage, record anyway
+        recordNetWorthSnapshot();
+      }
+
+      // Schedule tomorrow at 11:59 PM
+      const tomorrow = new Date(now);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const recordTime = new Date(tomorrow);
+      recordTime.setHours(23, 59, 0, 0); // 11:59 PM IST (device timezone)
+
+      const timeUntilRecord = recordTime.getTime() - now.getTime();
+
+      const timeout = setTimeout(() => {
+        recordNetWorthSnapshot();
+        scheduleNetWorthRecording(); // Reschedule for next day
+      }, timeUntilRecord);
+
+      return timeout;
+    };
+
+    const timeout = scheduleNetWorthRecording();
+
+    return () => clearTimeout(timeout);
+  }, [isHydrated, sections, dashboardData, totalPropertyValue, totalInvestedSummary, metalsTotalValue, getTotalFD, totalEPF, totalPersonalOwe, totalOutstanding, recordSnapshot]);
+
   if (!isHydrated) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -150,6 +343,27 @@ const Index = () => {
           </div>
         );
       }
+      if (mainMenuPage === "goals") {
+        const investmentSection = sections.find((s) => s.id === "investment-fund");
+        const investmentItems = investmentSection?.investmentItems || [];
+        const savingSection = sections.find((s) => s.id === "saving-fund");
+        const savingFundExpenses = savingSection?.expenses || [];
+        return (
+          <div className="space-y-4">
+            <button onClick={() => setMainMenuPage(null)} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+              <ArrowLeft className="h-4 w-4" /> Back
+            </button>
+            <GoalsPage
+              goalsHook={goalsHook}
+              investmentItems={investmentItems}
+              fds={depositsHook.data.fds}
+              savingFundExpenses={savingFundExpenses}
+              epf={depositsHook.data.epf}
+              otherSavings={depositsHook.data.otherSavings}
+            />
+          </div>
+        );
+      }
       if (mainMenuPage === "reports") {
         return (
           <div className="space-y-4">
@@ -164,9 +378,14 @@ const Index = () => {
               totalOutstanding={totalOutstanding}
               totalEPF={totalEPF}
               totalSBBalance={getTotalSBBalance()}
-              totalLockedIn={getTotalLockedIn()}
+              totalLockedIn={getTotalLockedIn() + (depositsHook.data.epf?.isLockedIn ? depositsHook.data.epf.totalAccumulated : 0) + depositsHook.data.otherSavings.filter(s => s.isLockedIn).reduce((sum, s) => sum + s.totalAmount, 0)}
               totalMetalsValue={metalsTotalValue}
               totalPersonalDebt={totalPersonalOwe}
+              transactions={transactions}
+              currentMonth={currentMonth}
+              currentYear={currentYear}
+              onMonthChange={setCurrentMonth}
+              onYearChange={setCurrentYear}
             />
           </div>
         );
@@ -201,7 +420,65 @@ const Index = () => {
           </div>
         );
       }
-      return <MainMenu onNavigate={handleMainNavigate} />;
+      if (mainMenuPage === "transactions") {
+        return (
+          <div className="space-y-4">
+            <button onClick={() => setMainMenuPage(null)} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+              <ArrowLeft className="h-4 w-4" /> Back
+            </button>
+            <TransactionsPage
+              transactions={monthTransactions}
+              monthKey={monthKey}
+              currentMonth={currentMonth}
+              currentYear={currentYear}
+              sections={sections}
+              onAddTransaction={handleRecordTransaction}
+              onDeleteTransaction={handleSyncDeleteTransaction}
+              getExpensesForFund={getExpensesForFund}
+            />
+          </div>
+        );
+      }
+      if (mainMenuPage === "automated-transactions") {
+        return (
+          <div className="space-y-4">
+            <button onClick={() => setMainMenuPage(null)} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+              <ArrowLeft className="h-4 w-4" /> Back
+            </button>
+            <AutomatedTransactionsPage
+              pendingTransactions={automatedTransactionsHook.pendingTransactions}
+              processedTransactions={automatedTransactionsHook.processedTransactions}
+              onApprove={handleApproveAutomatedTransaction}
+              onReject={automatedTransactionsHook.rejectTransaction}
+              onRefresh={automatedTransactionsHook.readSMSTransactions}
+              loading={automatedTransactionsHook.loading}
+              modelLoading={automatedTransactionsHook.modelLoading}
+              sections={sections}
+            />
+          </div>
+        );
+      }
+      if (mainMenuPage === "backup-restore") {
+        return (
+          <div className="space-y-4">
+            <button onClick={() => setMainMenuPage(null)} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+              <ArrowLeft className="h-4 w-4" /> Back
+            </button>
+            <BackupRestorePage />
+          </div>
+        );
+      }
+      if (mainMenuPage === "investment-planner") {
+        return (
+          <div className="space-y-4">
+            <button onClick={() => setMainMenuPage(null)} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+              <ArrowLeft className="h-4 w-4" /> Back
+            </button>
+            <InvestmentPlannerPage />
+          </div>
+        );
+      }
+      return <MainMenu onNavigate={handleMainNavigate} pendingAutomatedTransactionCount={automatedTransactionsHook.pendingTransactions.length} />;
     }
 
     if (activeTab === "debt") {
@@ -310,7 +587,7 @@ const Index = () => {
       {activeTab === "expenses" && (
         <header className="sticky top-0 z-10 bg-background/80 backdrop-blur-xl border-b px-4 py-4 safe-area-pt">
           <div className="max-w-lg mx-auto flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-primary flex items-center justify-center shrink-0 overflow-hidden">
+            <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center shrink-0 overflow-hidden">
               <img src={expenseLogo} alt="Logo" className="h-full w-full object-cover" />
             </div>
             <div className="flex flex-col">
@@ -348,13 +625,15 @@ const Index = () => {
       {(activeTab === "main" || activeTab === "debt") && (
         <header className="sticky top-0 z-10 bg-background/80 backdrop-blur-xl border-b px-4 py-4 safe-area-pt">
           <div className="max-w-lg mx-auto flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-primary flex items-center justify-center shrink-0 overflow-hidden">
+            <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center shrink-0 overflow-hidden">
               <img src={expenseLogo} alt="Logo" className="h-full w-full object-cover" />
             </div>
             <h1 className="font-heading text-lg font-bold text-foreground">
               {activeTab === "main" ? (
                 mainMenuPage === "metals" ? "Gold / Silver" :
                 mainMenuPage === "deposits" ? "Deposits" :
+                mainMenuPage === "investment-planner" ? "Investment Planner" :
+                mainMenuPage === "goals" ? "Goals" :
                 mainMenuPage ? mainMenuPage.charAt(0).toUpperCase() + mainMenuPage.slice(1) : "Finance Hub"
               ) : "Debt Manager"}
             </h1>
@@ -367,7 +646,7 @@ const Index = () => {
       </main>
 
       {activeTab === "expenses" && !isDashboard && !isInvestment && activeSection && activeSectionId !== "emergency-fund" && (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-20">
+        <div className="fixed bottom-32 left-1/2 -translate-x-1/2 z-20">
           <AddExpenseDialog
             onAdd={(desc, est, spent, isFD, preExistingFD, emi, saved, totalAllocated, totalSpent, lockedInAmt) => 
               addExpense(activeSection.id, desc, est, spent, isFD, preExistingFD, emi, saved, totalAllocated, totalSpent, lockedInAmt)

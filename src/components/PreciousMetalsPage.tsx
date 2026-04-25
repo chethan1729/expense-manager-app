@@ -9,7 +9,9 @@ import {
   Trash2, 
   RefreshCcw, 
   Coins,
-  Scale
+  Scale,
+  Filter,
+  ChevronDown
 } from "lucide-react";
 
 export function PreciousMetalsPage(props: ReturnType<typeof usePreciousMetals>) {
@@ -27,8 +29,41 @@ export function PreciousMetalsPage(props: ReturnType<typeof usePreciousMetals>) 
   } = props;
 
   const [editingItem, setEditingItem] = useState<PreciousMetalItem | null>(null);
+  const [sortBy, setSortBy] = useState<'type' | 'value-asc' | 'value-desc'>('type');
+  const [showSortMenu, setShowSortMenu] = useState(false);
 
   const summary = getSummary();
+
+  // Sort items based on selected criteria
+  const getSortedItems = () => {
+    let sorted = [...items];
+    
+    if (sortBy === 'type') {
+      // Sort by type in order: Gold 24K, Gold 22K, Silver, Platinum
+      const typeOrder: Record<MetalType, number> = {
+        'Gold 24K': 0,
+        'Gold 22K': 1,
+        'Silver': 2,
+        'Platinum': 3,
+      };
+      sorted.sort((a, b) => typeOrder[a.type] - typeOrder[b.type]);
+    } else if (sortBy === 'value-asc') {
+      // Sort by current value ascending
+      sorted.sort((a, b) => calculateCurrentValue(a) - calculateCurrentValue(b));
+    } else if (sortBy === 'value-desc') {
+      // Sort by current value descending
+      sorted.sort((a, b) => calculateCurrentValue(b) - calculateCurrentValue(a));
+    }
+    
+    return sorted;
+  };
+
+  const sortedItems = getSortedItems();
+  const sortLabels: Record<string, string> = {
+    'type': 'By Type',
+    'value-asc': 'Value (Low to High)',
+    'value-desc': 'Value (High to Low)',
+  };
 
   const renderSummaryCard = (label: string, value: number, gain: number, color: string) => (
     <Card className="p-4 space-y-2 border-none shadow-sm bg-card/50 backdrop-blur-sm">
@@ -72,6 +107,39 @@ export function PreciousMetalsPage(props: ReturnType<typeof usePreciousMetals>) 
             <Coins className="h-4 w-4" />
             Your Collection ({items.length})
           </h3>
+          
+          {/* Sort Dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => setShowSortMenu(!showSortMenu)}
+              className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg border border-input bg-background hover:bg-accent/50 transition-colors"
+            >
+              <Filter className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">{sortLabels[sortBy]}</span>
+              <ChevronDown className={`h-3 w-3 transition-transform ${showSortMenu ? 'rotate-180' : ''}`} />
+            </button>
+            
+            {showSortMenu && (
+              <div className="absolute top-full right-0 mt-1 w-48 bg-popover border border-input rounded-lg shadow-lg z-10">
+                {(['type', 'value-asc', 'value-desc'] as const).map((option) => (
+                  <button
+                    key={option}
+                    onClick={() => {
+                      setSortBy(option);
+                      setShowSortMenu(false);
+                    }}
+                    className={`w-full text-left px-3 py-2 text-xs transition-colors ${
+                      sortBy === option
+                        ? 'bg-primary/10 text-primary font-medium'
+                        : 'hover:bg-accent/50 text-foreground'
+                    }`}
+                  >
+                    {sortLabels[option]}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {items.length === 0 ? (
@@ -81,7 +149,7 @@ export function PreciousMetalsPage(props: ReturnType<typeof usePreciousMetals>) 
           </div>
         ) : (
           <div className="space-y-3">
-            {items.map((item) => {
+            {sortedItems.map((item) => {
               const currentVal = calculateCurrentValue(item);
               const gain = ((currentVal - item.purchasedValue) / item.purchasedValue) * 100;
               const rate = getRateForType(item.type);

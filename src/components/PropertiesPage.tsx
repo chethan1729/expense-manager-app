@@ -2,18 +2,35 @@ import { useState } from "react";
 import { useProperties, Property } from "@/hooks/useProperties";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Plus, Trash2, Check, X, TrendingUp, TrendingDown, Building2 } from "lucide-react";
+import { Plus, Trash2, Check, X, TrendingUp, TrendingDown, Building2, MapPin, FolderOpen, Image as ImageIcon } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 
 export function PropertiesPage(props: ReturnType<typeof useProperties>) {
   const { properties, addProperty, updateProperty, deleteProperty, totalPropertyValue, totalPurchaseValue } = props;
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: "", description: "", totalSqft: "", purchaseRatePerSqft: "", currentRatePerSqft: "" });
+  const [form, setForm] = useState({
+    name: "", description: "", totalSqft: "", purchaseRatePerSqft: "", currentRatePerSqft: "",
+    image: "", locationUrl: "", driveUrl: "",
+  });
 
   const appreciation = totalPurchaseValue > 0 ? ((totalPropertyValue - totalPurchaseValue) / totalPurchaseValue) * 100 : 0;
 
-  const resetForm = () => setForm({ name: "", description: "", totalSqft: "", purchaseRatePerSqft: "", currentRatePerSqft: "" });
+  const resetForm = () => setForm({
+    name: "", description: "", totalSqft: "", purchaseRatePerSqft: "", currentRatePerSqft: "",
+    image: "", locationUrl: "", driveUrl: "",
+  });
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setForm({ ...form, image: reader.result as string });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handleAdd = () => {
     if (!form.name.trim()) return;
@@ -23,6 +40,9 @@ export function PropertiesPage(props: ReturnType<typeof useProperties>) {
       totalSqft: parseFloat(form.totalSqft) || 0,
       purchaseRatePerSqft: parseFloat(form.purchaseRatePerSqft) || 0,
       currentRatePerSqft: parseFloat(form.currentRatePerSqft) || 0,
+      image: form.image || undefined,
+      locationUrl: form.locationUrl.trim() || undefined,
+      driveUrl: form.driveUrl.trim() || undefined,
     });
     resetForm();
     setAdding(false);
@@ -36,6 +56,9 @@ export function PropertiesPage(props: ReturnType<typeof useProperties>) {
       totalSqft: p.totalSqft.toString(),
       purchaseRatePerSqft: p.purchaseRatePerSqft.toString(),
       currentRatePerSqft: p.currentRatePerSqft.toString(),
+      image: p.image || "",
+      locationUrl: p.locationUrl || "",
+      driveUrl: p.driveUrl || "",
     });
   };
 
@@ -47,6 +70,9 @@ export function PropertiesPage(props: ReturnType<typeof useProperties>) {
       totalSqft: parseFloat(form.totalSqft) || 0,
       purchaseRatePerSqft: parseFloat(form.purchaseRatePerSqft) || 0,
       currentRatePerSqft: parseFloat(form.currentRatePerSqft) || 0,
+      image: form.image || undefined,
+      locationUrl: form.locationUrl.trim() || undefined,
+      driveUrl: form.driveUrl.trim() || undefined,
     });
     setEditingId(null);
     resetForm();
@@ -56,6 +82,44 @@ export function PropertiesPage(props: ReturnType<typeof useProperties>) {
     <div className="rounded-xl border border-primary/30 bg-card p-4 space-y-3">
       <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Property name" autoFocus />
       <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Description" rows={2} />
+
+      {/* Image Upload */}
+      <div className="space-y-2">
+        <label className="text-xs text-muted-foreground font-medium block">Property Photo</label>
+        <div className="flex items-center gap-3">
+          <Button variant="outline" size="sm" className="flex-1" onClick={() => document.getElementById('property-img-upload')?.click()}>
+            <ImageIcon className="h-4 w-4 mr-2" /> {form.image ? "Change Photo" : "Upload Photo"}
+          </Button>
+          <input type="file" id="property-img-upload" className="hidden" accept="image/*" onChange={handleImageUpload} />
+          {form.image && (
+            <Button variant="ghost" size="sm" className="text-destructive" onClick={() => setForm({ ...form, image: "" })}>
+              <X className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+        {form.image && (
+          <div className="h-32 rounded-lg overflow-hidden border">
+            <img src={form.image} alt="Preview" className="h-full w-full object-cover" />
+          </div>
+        )}
+      </div>
+
+      {/* Location & Drive */}
+      <div className="space-y-2">
+        <div>
+          <label className="text-xs text-muted-foreground font-medium mb-1 block">
+            <MapPin className="h-3 w-3 inline mr-1" />Google Maps Link
+          </label>
+          <Input value={form.locationUrl} onChange={(e) => setForm({ ...form, locationUrl: e.target.value })} placeholder="https://maps.google.com/..." />
+        </div>
+        <div>
+          <label className="text-xs text-muted-foreground font-medium mb-1 block">
+            <FolderOpen className="h-3 w-3 inline mr-1" />Drive Link (Documents)
+          </label>
+          <Input value={form.driveUrl} onChange={(e) => setForm({ ...form, driveUrl: e.target.value })} placeholder="https://drive.google.com/..." />
+        </div>
+      </div>
+
       <div className="grid grid-cols-3 gap-3">
         <div>
           <label className="text-xs text-muted-foreground mb-1 block">Total Sqft</label>
@@ -131,27 +195,67 @@ export function PropertiesPage(props: ReturnType<typeof useProperties>) {
         }
 
         return (
-          <div key={p.id} className="rounded-lg border bg-card p-4 space-y-2 cursor-pointer hover:border-primary/40 transition-colors" onClick={() => openEdit(p)}>
-            <h3 className="font-heading font-semibold text-card-foreground text-sm">{p.name}</h3>
-            {p.description && <p className="text-xs text-muted-foreground">{p.description}</p>}
-            <div className="grid grid-cols-3 gap-2 text-xs">
-              <div>
-                <span className="text-muted-foreground block">Purchase</span>
-                <span className="font-heading font-medium">₹{purchaseVal.toLocaleString('en-IN')}</span>
+          <div key={p.id} className="rounded-xl border bg-card overflow-hidden cursor-pointer hover:border-primary/40 transition-all hover:shadow-md" onClick={() => openEdit(p)}>
+            {/* Image section with overlaid property name */}
+            {p.image ? (
+              <div className="relative h-36 w-full">
+                <img src={p.image} alt={p.name} className="h-full w-full object-cover" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+                <div className="absolute bottom-0 left-0 right-0 p-3">
+                  <h3 className="font-heading font-bold text-white text-sm drop-shadow-lg">{p.name}</h3>
+                  {p.description && <p className="text-[11px] text-white/80 mt-0.5 line-clamp-1">{p.description}</p>}
+                </div>
               </div>
-              <div>
-                <span className="text-muted-foreground block">Current</span>
-                <span className="font-heading font-medium">₹{currentVal.toLocaleString('en-IN')}</span>
+            ) : (
+              <div className="px-4 pt-4">
+                <h3 className="font-heading font-semibold text-card-foreground text-sm">{p.name}</h3>
+                {p.description && <p className="text-xs text-muted-foreground mt-0.5">{p.description}</p>}
               </div>
-              <div>
-                <span className="text-muted-foreground block">Change</span>
-                <span className={`font-heading font-medium flex items-center gap-1 ${pctChange >= 0 ? "text-primary" : "text-destructive"}`}>
-                  {pctChange >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                  {pctChange.toFixed(1)}%
-                </span>
+            )}
+
+            {/* Details section */}
+            <div className="p-4 space-y-2">
+              <div className="grid grid-cols-3 gap-2 text-xs">
+                <div>
+                  <span className="text-muted-foreground block">Purchase</span>
+                  <span className="font-heading font-medium">₹{purchaseVal.toLocaleString('en-IN')}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block">Current</span>
+                  <span className="font-heading font-medium">₹{currentVal.toLocaleString('en-IN')}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block">Change</span>
+                  <span className={`font-heading font-medium flex items-center gap-1 ${pctChange >= 0 ? "text-primary" : "text-destructive"}`}>
+                    {pctChange >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                    {pctChange.toFixed(1)}%
+                  </span>
+                </div>
               </div>
+              <p className="text-xs text-muted-foreground">{p.totalSqft} sqft · ₹{p.purchaseRatePerSqft.toLocaleString('en-IN')}/sqft → ₹{p.currentRatePerSqft.toLocaleString('en-IN')}/sqft</p>
+
+              {/* Location & Drive links */}
+              {(p.locationUrl || p.driveUrl) && (
+                <div className="flex items-center gap-2 pt-1 border-t border-border/50">
+                  {p.locationUrl && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); window.open(p.locationUrl, '_blank'); }}
+                      className="flex items-center gap-1.5 text-[11px] font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/30 px-2.5 py-1.5 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
+                    >
+                      <MapPin className="h-3 w-3" /> Location
+                    </button>
+                  )}
+                  {p.driveUrl && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); window.open(p.driveUrl, '_blank'); }}
+                      className="flex items-center gap-1.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 px-2.5 py-1.5 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors"
+                    >
+                      <FolderOpen className="h-3 w-3" /> Documents
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
-            <p className="text-xs text-muted-foreground">{p.totalSqft} sqft · ₹{p.purchaseRatePerSqft.toLocaleString('en-IN')}/sqft → ₹{p.currentRatePerSqft.toLocaleString('en-IN')}/sqft</p>
           </div>
         );
       })}

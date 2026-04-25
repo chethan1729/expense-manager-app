@@ -56,27 +56,27 @@ const defaultSections: FundSection[] = [
   {
     id: "daily-expenses",
     name: "Daily Expenses",
-    budget: 83703,
+    budget: 0,
     expenses: [
-      { id: "1", description: "Maintanance", estimated: 4500, spent: 4756, totalAllocated: 4500, totalSpent: 4756 },
-      { id: "2", description: "Electricity Bill", estimated: 1500, spent: 0, totalAllocated: 1500, totalSpent: 0 },
-      { id: "3", description: "Petrol / Bus / Cab", estimated: 5000, spent: 50, totalAllocated: 5000, totalSpent: 50 },
-      { id: "4", description: "Groceries", estimated: 4000, spent: 676, totalAllocated: 4000, totalSpent: 676 },
-      { id: "5", description: "Food", estimated: 4000, spent: 0, totalAllocated: 4000, totalSpent: 0 },
-      { id: "6", description: "Mobile Recharge / Wifi / DTH", estimated: 500, spent: 0, totalAllocated: 500, totalSpent: 0 },
-      { id: "7", description: "OTT - Netflix, Spotify etc", estimated: 1000, spent: 0, totalAllocated: 1000, totalSpent: 0 },
-      { id: "8", description: "Party / Movie / Cafe / Dining", estimated: 4000, spent: 0, totalAllocated: 4000, totalSpent: 0 },
+      { id: "1", description: "Maintanance", estimated: 0, spent: 0, totalAllocated: 0, totalSpent: 0 },
+      { id: "2", description: "Electricity Bill", estimated: 0, spent: 0, totalAllocated: 0, totalSpent: 0 },
+      { id: "3", description: "Petrol / Bus / Cab", estimated: 0, spent: 0, totalAllocated: 0, totalSpent: 0 },
+      { id: "4", description: "Groceries", estimated: 0, spent: 0, totalAllocated: 0, totalSpent: 0 },
+      { id: "5", description: "Food", estimated: 0, spent: 0, totalAllocated: 0, totalSpent: 0 },
+      { id: "6", description: "Mobile Recharge / Wifi / DTH", estimated: 0, spent: 0, totalAllocated: 0, totalSpent: 0 },
+      { id: "7", description: "OTT - Netflix, Spotify etc", estimated: 0, spent: 0, totalAllocated: 0, totalSpent: 0 },
+      { id: "8", description: "Party / Movie / Cafe / Dining", estimated: 0, spent: 0, totalAllocated: 0, totalSpent: 0 },
       { id: "9", description: "Gift", estimated: 0, spent: 0, totalAllocated: 0, totalSpent: 0 },
-      { id: "10", description: "Bike License / Insurance / Service", estimated: 2500, spent: 0, totalAllocated: 2500, totalSpent: 0 },
+      { id: "10", description: "Bike License / Insurance / Service", estimated: 0, spent: 0, totalAllocated: 0, totalSpent: 0 },
       { id: "11", description: "Gas - Cylinder", estimated: 0, spent: 0, totalAllocated: 0, totalSpent: 0 },
-      { id: "12", description: "EMI (Active - 1) / Credit Card Bills", estimated: 53703, spent: 53703, totalAllocated: 53703, totalSpent: 53703 },
-      { id: "13", description: "Extra Expenses", estimated: 3000, spent: 0, totalAllocated: 3000, totalSpent: 0 },
+      { id: "12", description: "EMI (Active - 1) / Credit Card Bills", estimated: 0, spent: 0, totalAllocated: 0, totalSpent: 0 },
+      { id: "13", description: "Extra Expenses", estimated: 0, spent: 0, totalAllocated: 0, totalSpent: 0 },
     ],
   },
   {
     id: "investment-fund",
     name: "Investment Fund",
-    budget: 17000,
+    budget: 0,
     expenses: [],
     investmentItems: [
       { id: "inv1", name: "Equity Shares (IN)", allocated: 0, invested: 0, currentValue: 0 },
@@ -90,20 +90,20 @@ const defaultSections: FundSection[] = [
   {
     id: "loan-fund",
     name: "Loan Fund",
-    budget: 20000,
+    budget: 0,
     expenses: [
-      { id: "loan1", description: "Assetz Canvas & Cove - EMI", estimated: 20000, spent: 37336, emi: 37336, totalAllocated: 20000, totalSpent: 37336 },
+      { id: "loan1", description: "Assetz Canvas & Cove - EMI", estimated: 0, spent: 0, emi: 0, totalAllocated: 0, totalSpent: 0 },
     ],
   },
   {
     id: "wishlist-fund",
     name: "Wishlist Fund",
-    budget: 20000,
+    budget: 0,
     expenses: [
-      { id: "wf1", description: "Travel", estimated: 100000, spent: 20000, totalAllocated: 100000, totalSpent: 20000 },
-      { id: "wf2", description: "Home Rennovation", estimated: 50000, spent: 0, totalAllocated: 50000, totalSpent: 0 },
-      { id: "wf3", description: "Home Functions", estimated: 20000, spent: 0, totalAllocated: 20000, totalSpent: 0 },
-      { id: "wf4", description: "T.Courses / H.Studies", estimated: 10000, spent: 0, totalAllocated: 10000, totalSpent: 0 },
+      { id: "wf1", description: "Travel", estimated: 0, spent: 0, totalAllocated: 0, totalSpent: 0 },
+      { id: "wf2", description: "Home Rennovation", estimated: 0, spent: 0, totalAllocated: 0, totalSpent: 0 },
+      { id: "wf3", description: "Home Functions", estimated: 0, spent: 0, totalAllocated: 0, totalSpent: 0 },
+      { id: "wf4", description: "T.Courses / H.Studies", estimated: 0, spent: 0, totalAllocated: 0, totalSpent: 0 },
     ],
   },
   { id: "learning-fund", name: "Learning Fund", budget: 0, expenses: [] },
@@ -165,7 +165,7 @@ export function useFundManager() {
       const keys = Object.keys(monthlyData).sort();
       const lastKey = keys.length > 0 ? keys[keys.length - 1] : null;
       const baseSections = lastKey ? monthlyData[lastKey].sections : defaultSections;
-      const baseBudget = lastKey ? monthlyData[lastKey].totalBudget : 175981;
+      const baseBudget = lastKey ? monthlyData[lastKey].totalBudget : 0;
 
       return {
         sections: baseSections.map(s => ({
@@ -229,9 +229,52 @@ export function useFundManager() {
   }, [sections, totalBudget]);
 
   const unallocatedBudget = useMemo(() => {
-    const allocated = sections
-      .filter((s) => s.id !== "free-fund")
-      .reduce((sum, s) => sum + s.budget, 0);
+    // Using the formula: Total Budget - (Daily Expense Allocated + Investment fund allocated + Loan Fund This Month + Wishlist Fund This month + Emergency Fund this month + Savings Fund this month) - (Emergency Fund : Current Saved + Wishlist Fund : Balance)
+    
+    let allocated = 0;
+    
+    // Daily Expenses
+    const dailyExpenses = sections.find(s => s.id === "daily-expenses");
+    if (dailyExpenses) {
+      allocated += dailyExpenses.expenses.reduce((sum, e) => sum + (e.estimated || 0), 0);
+    }
+    
+    // Investment Fund (monthly allocated amount)
+    const investmentFund = sections.find(s => s.id === "investment-fund");
+    if (investmentFund) {
+      allocated += investmentFund.budget;
+    }
+    
+    // Loan Fund This Month
+    const loanFund = sections.find(s => s.id === "loan-fund");
+    if (loanFund) {
+      allocated += loanFund.expenses.reduce((sum, e) => sum + (e.estimated || 0), 0);
+    }
+    
+    // Wishlist Fund This Month
+    const wishlistFund = sections.find(s => s.id === "wishlist-fund");
+    if (wishlistFund) {
+      allocated += wishlistFund.expenses.reduce((sum, e) => sum + (e.estimated || 0), 0);
+      // Plus Current Balance (saved field)
+      allocated += wishlistFund.expenses.reduce((sum, e) => sum + (e.saved || 0), 0);
+    }
+    
+    // Emergency Fund This Month
+    const emergencyFund = sections.find(s => s.id === "emergency-fund");
+    if (emergencyFund) {
+      allocated += emergencyFund.expenses.reduce((sum, e) => sum + (e.estimated || 0), 0);
+      // Plus Current Saved
+      allocated += emergencyFund.expenses.reduce((sum, e) => sum + (e.saved || 0), 0);
+    }
+    
+    // Savings Fund This Month
+    const savingsFund = sections.find(s => s.id === "saving-fund");
+    if (savingsFund) {
+      allocated += savingsFund.expenses.reduce((sum, e) => sum + (e.estimated || 0), 0);
+      // Plus Current Saved
+      allocated += savingsFund.expenses.reduce((sum, e) => sum + (e.saved || 0), 0);
+    }
+    
     return totalBudget - allocated;
   }, [sections, totalBudget]);
 

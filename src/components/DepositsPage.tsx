@@ -3,7 +3,9 @@ import { useDeposits, INDIAN_BANKS, FDEntry, OtherSavingsEntry } from "@/hooks/u
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Check, X, Trash2, Plus, Landmark, TrendingUp, Edit2 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Check, X, Trash2, Plus, Landmark, TrendingUp, Edit2, Lock } from "lucide-react";
 
 // Fund label colors for FD labels
 const FUND_LABEL_OPTIONS = [
@@ -56,6 +58,7 @@ export function DepositsPage(props: ReturnType<typeof useDeposits>) {
   const [editingOther, setEditingOther] = useState<OtherSavingsEntry | null>(null);
   const [editingEPF, setEditingEPF] = useState(false);
   const [epfValue, setEpfValue] = useState((data.epf?.totalAccumulated || 0).toString());
+  const [epfLockedIn, setEpfLockedIn] = useState(data.epf?.isLockedIn || false);
 
   // FD form state
   const [fdBank, setFdBank] = useState("");
@@ -69,10 +72,12 @@ export function DepositsPage(props: ReturnType<typeof useDeposits>) {
   // Other savings form state
   const [osName, setOsName] = useState("");
   const [osAmount, setOsAmount] = useState("");
+  const [osLockedIn, setOsLockedIn] = useState(false);
 
   // Edit other savings
   const [editOsName, setEditOsName] = useState("");
   const [editOsAmount, setEditOsAmount] = useState("");
+  const [editOsLockedIn, setEditOsLockedIn] = useState(false);
 
   const resetFDForm = () => {
     setFdBank(""); setFdOpenDate(""); setFdMatDate(""); setFdROI(""); setFdInvested(""); setFdMaturity(""); setFdLabel("none");
@@ -354,7 +359,7 @@ export function DepositsPage(props: ReturnType<typeof useDeposits>) {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="font-heading font-semibold">EPF / PPF</h2>
-            <Button size="sm" variant="outline" onClick={() => { setEditingEPF(true); setEpfValue((data.epf?.totalAccumulated || 0).toString()); }}>
+            <Button size="sm" variant="outline" onClick={() => { setEditingEPF(true); setEpfValue((data.epf?.totalAccumulated || 0).toString()); setEpfLockedIn(data.epf?.isLockedIn || false); }}>
               <Edit2 className="h-4 w-4 mr-1" /> {data.epf ? "Update" : "Configure"}
             </Button>
           </div>
@@ -363,9 +368,13 @@ export function DepositsPage(props: ReturnType<typeof useDeposits>) {
             <div className="rounded-lg border border-primary/30 bg-card p-4 space-y-3">
               <label className="text-sm font-medium">Total EPF/PPF Accumulated (₹)</label>
               <Input type="number" value={epfValue} onChange={e => setEpfValue(e.target.value)} placeholder="0" autoFocus />
+              <div className="flex items-center space-x-2 py-2">
+                <Switch id="epf-lock-in" checked={epfLockedIn} onCheckedChange={setEpfLockedIn} />
+                <Label htmlFor="epf-lock-in" className="text-xs">Mark as Locked-in</Label>
+              </div>
               <div className="flex gap-2 justify-end">
                 <Button size="sm" variant="ghost" onClick={() => setEditingEPF(false)}><X className="h-4 w-4 mr-1" /> Cancel</Button>
-                <Button size="sm" onClick={() => { setEPF(parseFloat(epfValue) || 0); setEditingEPF(false); }}>
+                <Button size="sm" onClick={() => { setEPF(parseFloat(epfValue) || 0, epfLockedIn); setEditingEPF(false); }}>
                   <Check className="h-4 w-4 mr-1" /> Save
                 </Button>
               </div>
@@ -377,6 +386,7 @@ export function DepositsPage(props: ReturnType<typeof useDeposits>) {
               <div className="flex items-center gap-2">
                 <TrendingUp className="h-5 w-5 text-emerald-600" />
                 <span className="text-sm text-muted-foreground">Total Accumulated</span>
+                {data.epf.isLockedIn && <Lock className="h-3.5 w-3.5 text-muted-foreground ml-auto" />}
               </div>
               <p className="text-3xl font-bold font-heading text-emerald-600">₹{data.epf.totalAccumulated.toLocaleString('en-IN')}</p>
               <p className="text-xs text-muted-foreground">Last updated: {data.epf.lastUpdated}</p>
@@ -395,7 +405,7 @@ export function DepositsPage(props: ReturnType<typeof useDeposits>) {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="font-heading font-semibold">Other Savings ({data.otherSavings.length})</h2>
-            <Button size="sm" variant="outline" onClick={() => { setShowAddOther(true); setEditingOther(null); setOsName(""); setOsAmount(""); }}>
+            <Button size="sm" variant="outline" onClick={() => { setShowAddOther(true); setEditingOther(null); setOsName(""); setOsAmount(""); setOsLockedIn(false); }}>
               <Plus className="h-4 w-4 mr-1" /> Add Savings
             </Button>
           </div>
@@ -407,9 +417,13 @@ export function DepositsPage(props: ReturnType<typeof useDeposits>) {
                 <label className="text-xs text-muted-foreground mb-1 block">Total Amount (₹)</label>
                 <Input type="number" value={osAmount} onChange={e => setOsAmount(e.target.value)} placeholder="0" />
               </div>
+              <div className="flex items-center space-x-2 py-1">
+                <Switch id="os-lock-in" checked={osLockedIn} onCheckedChange={setOsLockedIn} />
+                <Label htmlFor="os-lock-in" className="text-xs">Mark as Locked-in</Label>
+              </div>
               <div className="flex gap-2 justify-end">
                 <Button size="sm" variant="ghost" onClick={() => setShowAddOther(false)}><X className="h-4 w-4 mr-1" /> Cancel</Button>
-                <Button size="sm" onClick={() => { if (osName) { addOtherSavings(osName, parseFloat(osAmount) || 0); setShowAddOther(false); } }}>
+                <Button size="sm" onClick={() => { if (osName) { addOtherSavings(osName, parseFloat(osAmount) || 0, osLockedIn); setShowAddOther(false); } }}>
                   <Check className="h-4 w-4 mr-1" /> Add
                 </Button>
               </div>
@@ -423,13 +437,17 @@ export function DepositsPage(props: ReturnType<typeof useDeposits>) {
                 <label className="text-xs text-muted-foreground mb-1 block">Total Amount (₹)</label>
                 <Input type="number" value={editOsAmount} onChange={e => setEditOsAmount(e.target.value)} placeholder="0" />
               </div>
+              <div className="flex items-center space-x-2 py-1">
+                <Switch id="edit-os-lock-in" checked={editOsLockedIn} onCheckedChange={setEditOsLockedIn} />
+                <Label htmlFor="edit-os-lock-in" className="text-xs">Mark as Locked-in</Label>
+              </div>
               <div className="flex gap-2 justify-between">
                 <Button size="sm" variant="ghost" className="text-destructive" onClick={() => { deleteOtherSavings(editingOther.id); setEditingOther(null); }}>
                   <Trash2 className="h-4 w-4 mr-1" /> Delete
                 </Button>
                 <div className="flex gap-2">
                   <Button size="sm" variant="ghost" onClick={() => setEditingOther(null)}><X className="h-4 w-4 mr-1" /> Cancel</Button>
-                  <Button size="sm" onClick={() => { updateOtherSavings(editingOther.id, { name: editOsName, totalAmount: parseFloat(editOsAmount) || 0 }); setEditingOther(null); }}>
+                  <Button size="sm" onClick={() => { updateOtherSavings(editingOther.id, { name: editOsName, totalAmount: parseFloat(editOsAmount) || 0, isLockedIn: editOsLockedIn }); setEditingOther(null); }}>
                     <Check className="h-4 w-4 mr-1" /> Save
                   </Button>
                 </div>
@@ -448,13 +466,16 @@ export function DepositsPage(props: ReturnType<typeof useDeposits>) {
                 <div
                   key={s.id}
                   className="rounded-lg border bg-card p-4 flex items-center gap-3 cursor-pointer hover:border-primary/40 transition-colors"
-                  onClick={() => { setEditingOther(s); setEditOsName(s.name); setEditOsAmount(s.totalAmount.toString()); setShowAddOther(false); }}
+                  onClick={() => { setEditingOther(s); setEditOsName(s.name); setEditOsAmount(s.totalAmount.toString()); setEditOsLockedIn(s.isLockedIn || false); setShowAddOther(false); }}
                 >
                   <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
                     <TrendingUp className="h-5 w-5 text-primary" />
                   </div>
                   <div className="flex-1">
-                    <h3 className="font-semibold text-sm">{s.name}</h3>
+                    <h3 className="font-semibold text-sm flex items-center gap-1">
+                      {s.name}
+                      {s.isLockedIn && <Lock className="h-3 w-3 text-muted-foreground" />}
+                    </h3>
                   </div>
                   <div className="text-right">
                     <p className="font-heading font-bold text-primary">₹{s.totalAmount.toLocaleString('en-IN')}</p>
