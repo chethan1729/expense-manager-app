@@ -4,10 +4,11 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Landmark, Lock } from "lucide-react";
+import { Plus, Landmark, Lock, Trash2 } from "lucide-react";
+import type { AmountSegregation } from "@/hooks/useExpenses";
 
 interface AddExpenseDialogProps {
-  onAdd: (description: string, estimated: number, spent: number, isFD?: boolean, preExistingFD?: number, emi?: number, saved?: number, totalAllocated?: number, totalSpent?: number, lockedInAmount?: number) => void;
+  onAdd: (description: string, estimated: number, spent: number, isFD?: boolean, preExistingFD?: number, emi?: number, saved?: number, totalAllocated?: number, totalSpent?: number, lockedInAmount?: number, segregationDetails?: AmountSegregation[]) => void;
   showFDOption?: boolean;
   isEmergency?: boolean;
   isLoan?: boolean;
@@ -28,10 +29,16 @@ export function AddExpenseDialog({ onAdd, showFDOption, isEmergency, isLoan, sho
   const [totalSpent, setTotalSpent] = useState("");
   const [hasLockIn, setHasLockIn] = useState(false);
   const [lockedInAmount, setLockedInAmount] = useState("");
+  const [segregations, setSegregations] = useState<Array<{sourceName: string; amount: string}>>([]);
+  const [segSourceName, setSegSourceName] = useState("");
+  const [segAmount, setSegAmount] = useState("");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!desc.trim()) return;
+    const finalSegregations: AmountSegregation[] = segregations
+      .filter(s => s.sourceName.trim() && parseFloat(s.amount) > 0)
+      .map(s => ({ id: crypto.randomUUID(), sourceName: s.sourceName.trim(), amount: parseFloat(s.amount) }));
     onAdd(
       desc.trim(), 
       parseFloat(est) || 0, 
@@ -42,9 +49,10 @@ export function AddExpenseDialog({ onAdd, showFDOption, isEmergency, isLoan, sho
       parseFloat(saved) || 0,
       showBalanceTracking ? (parseFloat(totalAllocated) || 0) : undefined,
       showBalanceTracking ? (parseFloat(totalSpent) || 0) : undefined,
-      hasLockIn ? (parseFloat(lockedInAmount) || 0) : 0
+      hasLockIn ? (parseFloat(lockedInAmount) || 0) : 0,
+      finalSegregations.length > 0 ? finalSegregations : undefined
     );
-    setDesc(""); setEst(""); setSpent(""); setIsFD(false); setPreExistingFD(""); setEmi(""); setSaved(""); setTotalAllocated(""); setTotalSpent(""); setHasLockIn(false); setLockedInAmount("");
+    setDesc(""); setEst(""); setSpent(""); setIsFD(false); setPreExistingFD(""); setEmi(""); setSaved(""); setTotalAllocated(""); setTotalSpent(""); setHasLockIn(false); setLockedInAmount(""); setSegregations([]); setSegSourceName(""); setSegAmount("");
     setOpen(false);
   };
 
@@ -75,10 +83,58 @@ export function AddExpenseDialog({ onAdd, showFDOption, isEmergency, isLoan, sho
             </div>
           </div>
           {isEmergency && (
-            <div>
-              <label className="text-sm text-muted-foreground mb-1 block text-accent font-bold">Current Saved (₹)</label>
-              <Input type="number" value={saved} onChange={(e) => setSaved(e.target.value)} placeholder="0" className="border-accent/40" />
-            </div>
+            <>
+              <div>
+                <label className="text-sm text-muted-foreground mb-1 block text-accent font-bold">Current Saved (₹)</label>
+                <Input type="number" value={saved} onChange={(e) => setSaved(e.target.value)} placeholder="0" className="border-accent/40" />
+              </div>
+              {/* Source Segregation */}
+              <div className="space-y-2 border-t pt-3">
+                <p className="text-xs font-semibold text-foreground">Source Breakdown</p>
+                <p className="text-[10px] text-muted-foreground -mt-1">Where is this amount kept? (optional)</p>
+                {segregations.map((seg, idx) => (
+                  <div key={idx} className="flex items-center gap-2 text-xs bg-muted/50 rounded-lg px-3 py-2">
+                    <span className="flex-1 font-medium">{seg.sourceName}</span>
+                    <span className="text-primary font-bold">₹{(parseFloat(seg.amount) || 0).toLocaleString('en-IN')}</span>
+                    <button
+                      type="button"
+                      onClick={() => setSegregations(p => p.filter((_, i) => i !== idx))}
+                      className="text-destructive hover:text-destructive/80"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+                <div className="flex gap-2">
+                  <Input
+                    value={segSourceName}
+                    onChange={e => setSegSourceName(e.target.value)}
+                    placeholder="Source (e.g. HDFC FD)"
+                    className="flex-1 h-8 text-xs"
+                  />
+                  <Input
+                    type="number"
+                    value={segAmount}
+                    onChange={e => setSegAmount(e.target.value)}
+                    placeholder="Amount"
+                    className="w-28 h-8 text-xs"
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-8 px-2"
+                    onClick={() => {
+                      if (!segSourceName.trim() || !segAmount) return;
+                      setSegregations(p => [...p, { sourceName: segSourceName, amount: segAmount }]);
+                      setSegSourceName(""); setSegAmount("");
+                    }}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </>
           )}
           {isLoan && (
             <div>

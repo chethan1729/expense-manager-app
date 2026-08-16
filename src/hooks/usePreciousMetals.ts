@@ -20,10 +20,10 @@ export interface MetalRates {
 }
 
 const DEFAULT_RATES: MetalRates = {
-  gold24k: 15360,
-  gold22k: 13965,
-  silver: 250,
-  platinum: 6150,
+  gold24k: 7450,
+  gold22k: 6825,
+  silver: 85,
+  platinum: 3000,
   lastUpdated: new Date().toISOString(),
 };
 
@@ -83,15 +83,21 @@ export const usePreciousMetals = () => {
       }
     } catch (error) {
       console.error("Failed to fetch metal rates:", error);
-      const fluctuation = () => (Math.random() - 0.5) * 50;
-      setRates(prev => ({
-        ...prev,
-        gold24k: Math.max(prev.gold24k, 15360) + fluctuation(),
-        gold22k: Math.max(prev.gold22k, 13965) + fluctuation(),
-        silver: Math.max(prev.silver, 250) + (Math.random() - 0.5) * 2,
-        platinum: Math.max(prev.platinum, 6150) + fluctuation(),
-        lastUpdated: new Date().toISOString(),
-      }));
+      const fluctuation = () => (Math.random() - 0.5) * 5;
+      setRates(prev => {
+        const baseGold24k = prev.gold24k > 10000 ? 7450 : prev.gold24k;
+        const baseGold22k = prev.gold22k > 9000 ? 6825 : prev.gold22k;
+        const baseSilver = prev.silver > 150 ? 85 : prev.silver;
+        const basePlatinum = prev.platinum > 4500 ? 3000 : prev.platinum;
+
+        return {
+          gold24k: Math.ceil(baseGold24k + fluctuation()),
+          gold22k: Math.ceil(baseGold22k + fluctuation() * 0.916),
+          silver: Math.ceil(baseSilver + (Math.random() - 0.5) * 0.5),
+          platinum: Math.ceil(basePlatinum + fluctuation() * 0.4),
+          lastUpdated: new Date().toISOString(),
+        };
+      });
     } finally {
       setLoading(false);
     }

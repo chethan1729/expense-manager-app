@@ -9,7 +9,7 @@ export interface GoalSubTarget {
 
 export interface GoalFundingSource {
   id: string;
-  sourceType: "investment-profile" | "fd" | "saving-fund" | "epf" | "other-savings";
+  sourceType: "investment-profile" | "wife-investment-profile" | "fd" | "saving-fund" | "epf" | "other-savings";
   sourceId: string;
   sourceName: string;
   allocatedAmount: number;
@@ -23,6 +23,7 @@ export interface Goal {
   subTargets: GoalSubTarget[];
   fundingSources: GoalFundingSource[];
   createdAt: string;
+  image?: string; // Base64 encoded goal photo
 }
 
 const STORAGE_KEY = "expense-manager-goals";
@@ -82,6 +83,22 @@ export function useGoals() {
       }, 0);
   };
 
+  const getSourceAllocations = (sourceType: string, sourceId: string) => {
+    const allocations: { goalName: string; amount: number }[] = [];
+    goals.forEach((g) => {
+      const sourceAllocations = g.fundingSources.filter(
+        (f) => f.sourceType === sourceType && f.sourceId === sourceId
+      );
+      if (sourceAllocations.length > 0) {
+        allocations.push({
+          goalName: g.name,
+          amount: sourceAllocations.reduce((s, f) => s + f.allocatedAmount, 0),
+        });
+      }
+    });
+    return allocations;
+  };
+
   const getGoalProgress = (goal: Goal) => {
     const totalFunded = goal.fundingSources.reduce((sum, f) => sum + f.allocatedAmount, 0);
     const remaining = Math.max(0, goal.targetAmount - totalFunded);
@@ -105,6 +122,7 @@ export function useGoals() {
     updateGoal,
     deleteGoal,
     getSourceAllocated,
+    getSourceAllocations,
     getGoalProgress,
   };
 }

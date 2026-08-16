@@ -111,7 +111,7 @@ function SortableFundItem({ section, onSelect }: SortableItemProps) {
                 </span>
               </div>
             </div>
-          ) : section.id === "investment-fund" ? (
+          ) : (section.id === "investment-fund" || section.id === "wife-investments") ? (
             <div className="grid grid-cols-3 gap-2 text-xs">
               <div>
                 <span className="text-muted-foreground block">Allocated</span>
@@ -145,7 +145,7 @@ function SortableFundItem({ section, onSelect }: SortableItemProps) {
             </div>
           )}
 
-          {totals.estimated > 0 && section.id !== "investment-fund" && (
+          {totals.estimated > 0 && section.id !== "investment-fund" && section.id !== "wife-investments" && (
             <div className="h-1.5 rounded-full bg-muted overflow-hidden">
               <div
                 className={`h-full rounded-full transition-all ${progress > 100 ? "bg-destructive" : progress > 80 ? "bg-accent" : "bg-primary"}`}
@@ -237,9 +237,24 @@ export function DashboardView({ dashboardData, onSelectSection, onUpdateBudget, 
               className={`rounded-xl ${card.bg} p-3 space-y-1 ${i === 0 ? "cursor-pointer hover:ring-2 ring-primary/30" : ""}`}
               onClick={i === 0 ? () => { setBudgetValue(totalBudget.toString()); setEditingBudget(true); } : undefined}
             >
-              <div className="flex items-center gap-1">
-                <card.icon className={`h-4 w-4 ${card.color}`} />
-                {i === 0 && <Pencil className="h-3 w-3 text-muted-foreground" />}
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1">
+                  <card.icon className={`h-4 w-4 ${card.color}`} />
+                </div>
+                {i === 0 && (
+                  <button
+                    type="button"
+                    aria-label="Edit total budget"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setBudgetValue(totalBudget.toString());
+                      setEditingBudget(true);
+                    }}
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border bg-background/80 text-muted-foreground hover:text-foreground"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
+                )}
               </div>
               <p className="text-xs text-muted-foreground">{card.label}</p>
               <p className={`font-heading font-bold text-sm ${card.color}`}>

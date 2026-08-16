@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import type { InvestmentItem } from "@/hooks/useExpenses";
 import { AppLauncher } from "@capacitor/app-launcher";
 import { cn } from "@/lib/utils";
+import { SourceAllocationDetails } from "./SourceAllocationDetails";
 
 export const BROKER_APPS = [
   { name: "Sharekhan", package: "com.sharekhan.androidsharemobile" },
@@ -87,9 +88,10 @@ interface InvestmentFundViewProps {
   onAddItem: (itemData: Omit<InvestmentItem, "id">) => void;
   onUpdateItem: (id: string, updates: Partial<Omit<InvestmentItem, "id">>) => void;
   onDeleteItem: (id: string) => void;
+  getSourceAllocations: (sourceType: string, sourceId: string) => { goalName: string; amount: number }[];
 }
 
-export function InvestmentFundView({ budget, items, onUpdateBudget, onAddItem, onUpdateItem, onDeleteItem }: InvestmentFundViewProps) {
+export function InvestmentFundView({ budget, items, onUpdateBudget, onAddItem, onUpdateItem, onDeleteItem, getSourceAllocations }: InvestmentFundViewProps) {
   const [editingBudget, setEditingBudget] = useState(false);
   const [budgetVal, setBudgetVal] = useState(budget.toString());
   const [addingNew, setAddingNew] = useState(false);
@@ -692,6 +694,11 @@ export function InvestmentFundView({ budget, items, onUpdateBudget, onAddItem, o
                   </div>
                 </div>
               </div>
+
+              <SourceAllocationDetails 
+                allocations={getSourceAllocations("investment-profile", item.id)} 
+                totalAmount={item.currentValue || 0} 
+              />
             </div>
           );
         })}

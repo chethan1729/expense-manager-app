@@ -5,13 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Plus, Trash2, Check, X, Target, Calendar, TrendingUp, Wallet,
-  ChevronDown, ChevronUp, AlertCircle,
+  ChevronDown, ChevronUp, AlertCircle, Image as ImageIcon,
 } from "lucide-react";
 import type { InvestmentItem, Expense } from "@/hooks/useExpenses";
 import type { FDEntry, EPFEntry, OtherSavingsEntry } from "@/hooks/useDeposits";
 
 interface AvailableSource {
-  sourceType: "investment-profile" | "fd" | "saving-fund" | "epf" | "other-savings";
+  sourceType: "investment-profile" | "wife-investment-profile" | "fd" | "saving-fund" | "epf" | "other-savings";
   sourceId: string;
   sourceName: string;
   totalBalance: number;
@@ -21,6 +21,7 @@ interface AvailableSource {
 interface GoalsPageProps {
   goalsHook: ReturnType<typeof useGoals>;
   investmentItems: InvestmentItem[];
+  wifeInvestmentItems: InvestmentItem[];
   fds: FDEntry[];
   savingFundExpenses: Expense[];
   epf: EPFEntry | null;
@@ -29,7 +30,7 @@ interface GoalsPageProps {
 
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
-export function GoalsPage({ goalsHook, investmentItems, fds, savingFundExpenses, epf, otherSavings }: GoalsPageProps) {
+export function GoalsPage({ goalsHook, investmentItems, wifeInvestmentItems, fds, savingFundExpenses, epf, otherSavings }: GoalsPageProps) {
   const { goals, addGoal, updateGoal, deleteGoal, getSourceAllocated, getGoalProgress } = goalsHook;
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -42,6 +43,7 @@ export function GoalsPage({ goalsHook, investmentItems, fds, savingFundExpenses,
   const [formYear, setFormYear] = useState((new Date().getFullYear() + 1).toString());
   const [formSubTargets, setFormSubTargets] = useState<GoalSubTarget[]>([]);
   const [formFunding, setFormFunding] = useState<GoalFundingSource[]>([]);
+  const [formImage, setFormImage] = useState("");
 
   // Sub-target add form
   const [stName, setStName] = useState("");
@@ -55,6 +57,18 @@ export function GoalsPage({ goalsHook, investmentItems, fds, savingFundExpenses,
     setFormMonth((new Date().getMonth() + 1).toString());
     setFormYear((new Date().getFullYear() + 1).toString());
     setStName(""); setStAmount(""); setShowFundingPicker(false);
+    setFormImage("");
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFormImage(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const openEdit = (g: Goal) => {
@@ -66,6 +80,7 @@ export function GoalsPage({ goalsHook, investmentItems, fds, savingFundExpenses,
     setFormYear(y);
     setFormSubTargets([...g.subTargets]);
     setFormFunding([...g.fundingSources]);
+    setFormImage(g.image || "");
     setAdding(false);
   };
 
@@ -76,6 +91,15 @@ export function GoalsPage({ goalsHook, investmentItems, fds, savingFundExpenses,
       const used = getSourceAllocated("investment-profile", item.id, excludeGoalId);
       sources.push({
         sourceType: "investment-profile", sourceId: item.id,
+        sourceName: `${item.name}${item.type && item.type !== "Other" ? ` - ${item.type}` : ""}`,
+        totalBalance: total, availableBalance: Math.max(0, total - used),
+      });
+    });
+    wifeInvestmentItems.forEach((item) => {
+      const total = item.currentValue || 0;
+      const used = getSourceAllocated("wife-investment-profile", item.id, excludeGoalId);
+      sources.push({
+        sourceType: "wife-investment-profile", sourceId: item.id,
         sourceName: `${item.name}${item.type && item.type !== "Other" ? ` - ${item.type}` : ""}`,
         totalBalance: total, availableBalance: Math.max(0, total - used),
       });
@@ -148,6 +172,7 @@ export function GoalsPage({ goalsHook, investmentItems, fds, savingFundExpenses,
       name: formName.trim(), targetAmount: targetAmt,
       targetDate: `${formYear}-${formMonth.padStart(2, "0")}`,
       subTargets: formSubTargets, fundingSources: formFunding,
+      image: formImage || undefined,
     };
     if (editingId) {
       updateGoal(editingId, goalData);
@@ -175,6 +200,7 @@ export function GoalsPage({ goalsHook, investmentItems, fds, savingFundExpenses,
     }).filter((s) => s.totalBalance > 0);
 
     const investmentSources = adjustedSources.filter((s) => s.sourceType === "investment-profile");
+    const wifeInvestmentSources = adjustedSources.filter((s) => s.sourceType === "wife-investment-profile");
     const fdSources = adjustedSources.filter((s) => s.sourceType === "fd");
     const savingSources = adjustedSources.filter((s) => s.sourceType === "saving-fund");
     const epfSources = adjustedSources.filter((s) => s.sourceType === "epf");
@@ -222,6 +248,7 @@ export function GoalsPage({ goalsHook, investmentItems, fds, savingFundExpenses,
         ) : (
           <div className="space-y-3 max-h-60 overflow-y-auto">
             {renderGroup("Investment Profiles", investmentSources)}
+            {renderGroup("Wife's Investments", wifeInvestmentSources)}
             {renderGroup("EPF", epfSources)}
             {renderGroup("Other Savings", otherSavingSources)}
             {renderGroup("Fixed Deposits", fdSources)}
@@ -254,6 +281,27 @@ export function GoalsPage({ goalsHook, investmentItems, fds, savingFundExpenses,
             <SelectContent>{[2025,2026,2027,2028,2029,2030].map((y) => <SelectItem key={y} value={y.toString()}>{y}</SelectItem>)}</SelectContent>
           </Select>
         </div>
+      </div>
+
+      {/* Goal Photo */}
+      <div className="space-y-2 border-t pt-3">
+        <label className="text-xs text-muted-foreground font-medium block">Goal Photo</label>
+        <div className="flex items-center gap-3">
+          <Button variant="outline" size="sm" className="flex-1" onClick={() => document.getElementById('goal-img-upload')?.click()}>
+            <ImageIcon className="h-4 w-4 mr-2" /> {formImage ? "Change Photo" : "Upload Photo"}
+          </Button>
+          <input type="file" id="goal-img-upload" className="hidden" accept="image/*" onChange={handleImageUpload} />
+          {formImage && (
+            <Button variant="ghost" size="sm" className="text-destructive" onClick={() => setFormImage("")}>
+              <X className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+        {formImage && (
+          <div className="h-32 rounded-lg overflow-hidden border">
+            <img src={formImage} alt="Preview" className="h-full w-full object-cover" />
+          </div>
+        )}
       </div>
 
       {/* Sub-targets */}
@@ -358,28 +406,58 @@ export function GoalsPage({ goalsHook, investmentItems, fds, savingFundExpenses,
         return (
           <div key={goal.id} className="rounded-xl border bg-card overflow-hidden hover:border-primary/40 transition-all">
             {/* Header */}
-            <div className="p-4 space-y-3 cursor-pointer" onClick={() => openEdit(goal)}>
-              <div className="flex items-start justify-between">
-                <div className="flex-1 min-w-0 pr-3">
-                  <h3 className="font-heading font-bold text-sm text-card-foreground">{goal.name}</h3>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="text-xs text-muted-foreground flex items-center gap-1">
-                      <Calendar className="h-3 w-3" /> {targetLabel}
+            {goal.image ? (
+              <div className="relative h-36 w-full cursor-pointer" onClick={() => openEdit(goal)}>
+                <img src={goal.image} alt={goal.name} className="h-full w-full object-cover" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+                <div className="absolute inset-0 p-4 flex items-end justify-between">
+                  <div className="flex-1 min-w-0 pr-3">
+                    <h3 className="font-heading font-bold text-white text-sm drop-shadow-md">{goal.name}</h3>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-xs text-white/80 flex items-center gap-1">
+                        <Calendar className="h-3 w-3" /> {targetLabel}
+                      </span>
+                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full text-white ${status.bg}`}>{status.label}</span>
+                    </div>
+                  </div>
+                  {/* Circular progress */}
+                  <div className="relative h-12 w-12 shrink-0 bg-black/25 rounded-full p-0.5">
+                    <svg className="h-11 w-11 -rotate-90" viewBox="0 0 36 36">
+                      <circle cx="18" cy="18" r="15" fill="none" stroke="white/20" strokeWidth="3" />
+                      <circle cx="18" cy="18" r="15" fill="none" stroke="white" strokeWidth="3" strokeDasharray={`${Math.min(progress.percent, 100) * 0.9425} 94.25`} strokeLinecap="round" />
+                    </svg>
+                    <span className="absolute inset-0 flex items-center justify-center text-[9px] font-bold text-white">
+                      {Math.round(progress.percent)}%
                     </span>
-                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full text-white ${status.bg}`}>{status.label}</span>
                   </div>
                 </div>
-                {/* Circular progress */}
-                <div className="relative h-12 w-12 shrink-0">
-                  <svg className="h-12 w-12 -rotate-90" viewBox="0 0 36 36">
-                    <circle cx="18" cy="18" r="15" fill="none" stroke="currentColor" strokeWidth="3" className="text-muted/30" />
-                    <circle cx="18" cy="18" r="15" fill="none" strokeWidth="3" strokeDasharray={`${Math.min(progress.percent, 100) * 0.9425} 94.25`} strokeLinecap="round" className={status.text} />
-                  </svg>
-                  <span className={`absolute inset-0 flex items-center justify-center text-[9px] font-bold ${status.text}`}>
-                    {Math.round(progress.percent)}%
-                  </span>
-                </div>
               </div>
+            ) : null}
+
+            <div className="p-4 space-y-3 cursor-pointer" onClick={() => openEdit(goal)}>
+              {!goal.image && (
+                <div className="flex items-start justify-between">
+                  <div className="flex-1 min-w-0 pr-3">
+                    <h3 className="font-heading font-bold text-sm text-card-foreground">{goal.name}</h3>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-xs text-muted-foreground flex items-center gap-1">
+                        <Calendar className="h-3 w-3" /> {targetLabel}
+                      </span>
+                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full text-white ${status.bg}`}>{status.label}</span>
+                    </div>
+                  </div>
+                  {/* Circular progress */}
+                  <div className="relative h-12 w-12 shrink-0">
+                    <svg className="h-12 w-12 -rotate-90" viewBox="0 0 36 36">
+                      <circle cx="18" cy="18" r="15" fill="none" stroke="currentColor" strokeWidth="3" className="text-muted/30" />
+                      <circle cx="18" cy="18" r="15" fill="none" strokeWidth="3" strokeDasharray={`${Math.min(progress.percent, 100) * 0.9425} 94.25`} strokeLinecap="round" className={status.text} />
+                    </svg>
+                    <span className={`absolute inset-0 flex items-center justify-center text-[9px] font-bold ${status.text}`}>
+                      {Math.round(progress.percent)}%
+                    </span>
+                  </div>
+                </div>
+              )}
 
               {/* Progress bar */}
               <div className="space-y-1">

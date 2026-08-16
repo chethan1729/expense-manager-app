@@ -28,6 +28,8 @@ import { TransactionsPage } from "@/components/TransactionsPage";
 import { AutomatedTransactionsPage } from "@/components/AutomatedTransactionsPage";
 import { BackupRestorePage } from "@/components/BackupRestorePage";
 import { InvestmentPlannerPage } from "@/components/InvestmentPlannerPage";
+import { FinancialAssistant } from "@/components/FinancialAssistant";
+import type { FinancialContext } from "@/hooks/useChat";
 import expenseLogo from "@/assets/expense.png";
 import { Wallet, TrendingDown, TrendingUp, IndianRupee, ArrowLeft } from "lucide-react";
 import {
@@ -110,15 +112,21 @@ const Index = () => {
   };
 
   const handleRecordTransaction = (date: string, fundId: string, amount: number, expenseId?: string, paymentMode?: string, automatedId?: string) => {
+    // Calculate the month key from the transaction date
+    const dateObj = new Date(date);
+    const txYear = dateObj.getFullYear();
+    const txMonth = (dateObj.getMonth() + 1).toString().padStart(2, '0');
+    const txMonthKey = `${txYear}-${txMonth}`;
+    
     addTransaction(date, fundId as TransactionFundType, amount, expenseId, undefined, paymentMode as PaymentMode, automatedId);
     
-    // Update the expense's spent amount
+    // Update the expense's spent amount using transaction date's month
     if (fundId === "daily-expenses" && expenseId) {
       const expense = getExpensesForFund(fundId).find((e) => e.id === expenseId);
       if (expense) {
         updateExpense(fundId, expenseId, {
           spent: (expense.spent || 0) + amount,
-        });
+        }, txMonthKey);
       }
     } else if (fundId === "wishlist-fund" || fundId === "hobby-fund") {
       // For balance tracking funds, first find the matching expense
@@ -127,7 +135,7 @@ const Index = () => {
         const expense = fundExpenses[0];
         updateExpense(fundId, expense.id, {
           spent: (expense.spent || 0) + amount,
-        });
+        }, txMonthKey);
       }
     }
   };
@@ -199,14 +207,14 @@ const Index = () => {
       automatedTransactionsHook.unprocessTransaction(transaction.automatedId);
     }
     
-    // Reverse the expense amount
+    // Reverse the expense amount using the transaction's month
     const { fundId, expenseId, amount } = transaction;
     if (fundId === "daily-expenses" && expenseId) {
       const expense = getExpensesForFund(fundId).find((e) => e.id === expenseId);
       if (expense) {
         updateExpense(fundId, expenseId, {
           spent: Math.max(0, (expense.spent || 0) - amount),
-        });
+        }, monthKey);
       }
     } else if (fundId === "wishlist-fund" || fundId === "hobby-fund") {
       const fundExpenses = getExpensesForFund(fundId);
@@ -214,7 +222,7 @@ const Index = () => {
         const expense = fundExpenses[0];
         updateExpense(fundId, expense.id, {
           spent: Math.max(0, (expense.spent || 0) - amount),
-        });
+        }, monthKey);
       }
     }
 
@@ -345,7 +353,9 @@ const Index = () => {
       }
       if (mainMenuPage === "goals") {
         const investmentSection = sections.find((s) => s.id === "investment-fund");
+        const wifeInvestmentSection = sections.find((s) => s.id === "wife-investments");
         const investmentItems = investmentSection?.investmentItems || [];
+        const wifeInvestmentItems = wifeInvestmentSection?.investmentItems || [];
         const savingSection = sections.find((s) => s.id === "saving-fund");
         const savingFundExpenses = savingSection?.expenses || [];
         return (
@@ -356,6 +366,7 @@ const Index = () => {
             <GoalsPage
               goalsHook={goalsHook}
               investmentItems={investmentItems}
+              wifeInvestmentItems={wifeInvestmentItems}
               fds={depositsHook.data.fds}
               savingFundExpenses={savingFundExpenses}
               epf={depositsHook.data.epf}
@@ -406,7 +417,10 @@ const Index = () => {
             <button onClick={() => setMainMenuPage(null)} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
               <ArrowLeft className="h-4 w-4" /> Back
             </button>
-            <DepositsPage {...depositsHook} />
+            <DepositsPage 
+              {...depositsHook} 
+              getSourceAllocations={goalsHook.getSourceAllocations}
+            />
           </div>
         );
       }
@@ -458,6 +472,57 @@ const Index = () => {
           </div>
         );
       }
+      if (mainMenuPage === "finance-assistant") {
+        const fullTotalFD = getTotalFD() + depositsTotalFD;
+        const monthlyRem = dashboardData.sections
+          .filter(s => s.id === "daily-expenses" || s.id === "free-fund")
+          .reduce((sum, s) => sum + (s.totals.remaining || 0), 0);
+        const trackingBalance = dashboardData.sections
+          .filter(s => ["hobby-fund", "loan-fund", "wishlist-fund", "learning-fund", "emergency-fund", "saving-fund"].includes(s.id))
+          .reduce((sum, s) => sum + (s.totals.currentBalance || 0), 0);
+        const floatAmt = Math.max(0, totalBudget - dashboardData.totalSpent - fullTotalFD);
+
+        const context: FinancialContext = {
+          totalBudget: dashboardData.totalBudget,
+          totalSpent: dashboardData.totalSpent,
+          totalRemaining: dashboardData.totalRemaining,
+          fundSummaries: dashboardData.sections.map(s => ({
+            name: s.name,
+            allocated: s.totals.estimated,
+            spent: s.totals.spent,
+            remaining: s.totals.remaining,
+            currentBalance: s.totals.currentBalance,
+          })),
+          totalInvested: totalInvestedSummary,
+          totalPropertyValue: totalPropertyValue,
+          totalFD: fullTotalFD,
+          totalEPF: totalEPF,
+          totalMetalsValue: metalsTotalValue,
+          totalOutstanding: totalOutstanding,
+          totalPersonalDebt: totalPersonalOwe,
+          monthlyRemaining: monthlyRem,
+          cumulativeTrackingBalance: trackingBalance,
+          floatingAmount: floatAmt,
+          goals: goalsHook.goals.map(g => {
+            const progress = goalsHook.getGoalProgress(g);
+            return {
+              name: g.name,
+              targetAmount: g.targetAmount,
+              funded: progress.totalFunded,
+              targetDate: g.targetDate,
+            };
+          }),
+        };
+
+        return (
+          <div className="space-y-4">
+            <button onClick={() => setMainMenuPage(null)} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+              <ArrowLeft className="h-4 w-4" /> Back
+            </button>
+            <FinancialAssistant financialContext={context} />
+          </div>
+        );
+      }
       if (mainMenuPage === "backup-restore") {
         return (
           <div className="space-y-4">
@@ -506,6 +571,7 @@ const Index = () => {
           onAddItem={(itemData) => addInvestmentItem(activeSection.id, itemData)}
           onUpdateItem={(id, updates) => updateInvestmentItem(activeSection.id, id, updates)}
           onDeleteItem={(id) => deleteInvestmentItem(activeSection.id, id)}
+          getSourceAllocations={goalsHook.getSourceAllocations}
         />
       );
     }
@@ -566,6 +632,7 @@ const Index = () => {
                 isSimple={isSimple}
                 showBalanceTracking={isBalance && !isSimple}
                 isSaving={isSavingFund}
+                getSourceAllocations={goalsHook.getSourceAllocations}
               />
             ))}
             {activeSection.expenses.length === 0 && (

@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Check, X, Trash2, Plus, Landmark, TrendingUp, Edit2, Lock } from "lucide-react";
+import { SourceAllocationDetails } from "./SourceAllocationDetails";
 
 // Fund label colors for FD labels
 const FUND_LABEL_OPTIONS = [
@@ -42,7 +43,11 @@ function MaturityBadge({ maturityDate }: { maturityDate: string }) {
   return <span className="text-[10px] bg-muted text-muted-foreground px-2 py-0.5 rounded-full">{Math.round(days / 30)}mo</span>;
 }
 
-export function DepositsPage(props: ReturnType<typeof useDeposits>) {
+interface DepositsPageProps extends ReturnType<typeof useDeposits> {
+  getSourceAllocations: (sourceType: string, sourceId: string) => { goalName: string; amount: number }[];
+}
+
+export function DepositsPage(props: DepositsPageProps) {
   const {
     sortedFDs, data, loading,
     addFD, updateFD, deleteFD,
@@ -346,6 +351,11 @@ export function DepositsPage(props: ReturnType<typeof useDeposits>) {
                     <div className="text-[10px] text-muted-foreground border-t pt-2">
                       Matures: <span className="text-foreground font-medium">{fd.maturityDate}</span>
                     </div>
+
+                    <SourceAllocationDetails 
+                      allocations={props.getSourceAllocations("fd", fd.id)} 
+                      totalAmount={fd.investedAmount || 0} 
+                    />
                   </div>
                 );
               })
@@ -390,6 +400,11 @@ export function DepositsPage(props: ReturnType<typeof useDeposits>) {
               </div>
               <p className="text-3xl font-bold font-heading text-emerald-600">₹{data.epf.totalAccumulated.toLocaleString('en-IN')}</p>
               <p className="text-xs text-muted-foreground">Last updated: {data.epf.lastUpdated}</p>
+              
+              <SourceAllocationDetails 
+                allocations={props.getSourceAllocations("epf", data.epf.id)} 
+                totalAmount={data.epf.totalAccumulated || 0} 
+              />
             </div>
           ) : (
             <div className="text-center py-12 text-muted-foreground">
@@ -480,6 +495,10 @@ export function DepositsPage(props: ReturnType<typeof useDeposits>) {
                   <div className="text-right">
                     <p className="font-heading font-bold text-primary">₹{s.totalAmount.toLocaleString('en-IN')}</p>
                   </div>
+                  <SourceAllocationDetails 
+                    allocations={props.getSourceAllocations("other-savings", s.id)} 
+                    totalAmount={s.totalAmount || 0} 
+                  />
                 </div>
               ))
             )}

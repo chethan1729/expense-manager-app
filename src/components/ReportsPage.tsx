@@ -4,6 +4,7 @@ import { TrendingUp, IndianRupee, ChevronRight, ChevronDown, BarChart3, Landmark
 import type { FundSection } from "@/hooks/useExpenses";
 import type { Transaction } from "@/hooks/useTransactions";
 import { useNetWorthHistory } from "@/hooks/useNetWorthHistory";
+import { MonthlyFundReport } from "@/components/MonthlyFundReport";
 import { 
   AlertDialog, 
   AlertDialogAction, 
@@ -162,6 +163,23 @@ export function ReportsPage({
   const [expanded, setExpanded] = useState<string | null>(null);
   const toggle = (id: string) => setExpanded(prev => prev === id ? null : id);
   
+  // State for monthly history updates from the Update Values button
+  const [monthlyHistoryUpdates, setMonthlyHistoryUpdates] = useState<Record<string, any>>({});
+  
+  // Merge transactions with updates
+  const mergedMonthlyHistory = useMemo(() => {
+    return { ...transactions, ...monthlyHistoryUpdates };
+  }, [transactions, monthlyHistoryUpdates]);
+  
+  // Handle monthly fund report updates
+  const handleUpdateMonthlyValues = (year: number, month: number, data: any) => {
+    const monthKey = `${year}-${(month + 1).toString().padStart(2, "0")}`;
+    setMonthlyHistoryUpdates(prev => ({
+      ...prev,
+      [monthKey]: data
+    }));
+  };
+  
   const { getRecentHistory, resetHistory } = useNetWorthHistory();
   const netWorthHistory = getRecentHistory(90); // Get last 90 days
 
@@ -205,7 +223,7 @@ export function ReportsPage({
   // Fund doughnut data: current balances for all funds except investment
   const fundData = useMemo(() => {
     const allFundEntries = sections
-      .filter(s => s.id !== "investment-fund")
+      .filter(s => s.id !== "investment-fund" && s.id !== "wife-investments")
       .map(s => {
         const val = (s.totals.currentBalance !== undefined) ? s.totals.currentBalance : s.totals.remaining;
         return { id: s.id, name: s.name.replace(" Fund", ""), value: Math.max(0, val) };
@@ -616,7 +634,10 @@ export function ReportsPage({
                 "July", "August", "September", "October", "November", "December"
               ];
               
-              const monthKey = `${currentYear}-${(currentMonth + 1).toString().padStart(2, "0")}`;
+              const [navMonth, setNavMonth] = useState(currentMonth);
+              const [navYear, setNavYear] = useState(currentYear);
+              
+              const monthKey = `${navYear}-${(navMonth + 1).toString().padStart(2, "0")}`;
               const monthTransactions = transactions[monthKey] || [];
               
               // Calculate daily totals
@@ -637,8 +658,8 @@ export function ReportsPage({
                 return new Date(year, month, 1).getDay();
               };
 
-              const daysInMonth = getDaysInMonth(currentMonth, currentYear);
-              const firstDay = getFirstDayOfMonth(currentMonth, currentYear);
+              const daysInMonth = getDaysInMonth(navMonth, navYear);
+              const firstDay = getFirstDayOfMonth(navMonth, navYear);
               const days: (number | null)[] = [];
 
               for (let i = 0; i < firstDay; i++) {
@@ -674,6 +695,24 @@ export function ReportsPage({
                 .filter((t) => t.paymentMode === 'cash')
                 .reduce((sum, t) => sum + t.amount, 0);
 
+              const handlePrevMonth = () => {
+                if (navMonth === 0) {
+                  setNavMonth(11);
+                  setNavYear(navYear - 1);
+                } else {
+                  setNavMonth(navMonth - 1);
+                }
+              };
+
+              const handleNextMonth = () => {
+                if (navMonth === 11) {
+                  setNavMonth(0);
+                  setNavYear(navYear + 1);
+                } else {
+                  setNavMonth(navMonth + 1);
+                }
+              };
+
               return (
                 <div className="space-y-4">
                   {/* Summary */}
@@ -690,11 +729,27 @@ export function ReportsPage({
                     </div>
                   </div>
 
-                  {/* Mini Calendar */}
+                  {/* Mini Calendar with Month Navigation */}
                   <div>
-                    <p className="text-xs font-semibold text-muted-foreground mb-2">
-                      {monthNames[currentMonth]} {currentYear}
-                    </p>
+                    <div className="flex items-center justify-between mb-3">
+                      <button
+                        onClick={handlePrevMonth}
+                        className="p-1.5 hover:bg-muted rounded transition-colors"
+                        title="Previous Month"
+                      >
+                        <ChevronRight className="h-4 w-4 rotate-180" />
+                      </button>
+                      <p className="text-sm font-semibold text-foreground">
+                        {monthNames[navMonth]} {navYear}
+                      </p>
+                      <button
+                        onClick={handleNextMonth}
+                        className="p-1.5 hover:bg-muted rounded transition-colors"
+                        title="Next Month"
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </button>
+                    </div>
                     <div className="grid grid-cols-7 gap-1">
                       {weekDays.map((day) => (
                         <div key={day} className="text-center text-[10px] font-semibold text-muted-foreground p-1">
@@ -703,7 +758,7 @@ export function ReportsPage({
                       ))}
                       {days.map((day, index) => {
                         const dateStr = day
-                          ? `${currentYear}-${(currentMonth + 1).toString().padStart(2, "0")}-${day.toString().padStart(2, "0")}`
+                          ? `${navYear}-${(navMonth + 1).toString().padStart(2, "0")}-${day.toString().padStart(2, "0")}`
                           : null;
                         const daily = dateStr ? dailyTotals[dateStr] || 0 : 0;
                         const hasTransactions = dateStr && dailyTotals[dateStr];
@@ -760,6 +815,26 @@ export function ReportsPage({
           </div>
         </ReportCard>
       )}
+
+      {/* 5. Monthly Fund Report */}
+      <ReportCard
+        title="Monthly Fund Report"
+        subtitle="Allocated vs Spent by Fund"
+        icon={BarChart3}
+        iconColor="bg-blue-100 text-blue-700"
+        expanded={expanded === "monthly-fund-report"}
+        onToggle={() => toggle("monthly-fund-report")}
+      >
+        <MonthlyFundReport
+          sections={sections}
+          totalBudget={totalBudget}
+          totalSpent={totalSpent}
+          currentMonth={currentMonth}
+          currentYear={currentYear}
+          monthlyHistory={mergedMonthlyHistory}
+          onUpdateMonth={handleUpdateMonthlyValues}
+        />
+      </ReportCard>
     </div>
   );
 }

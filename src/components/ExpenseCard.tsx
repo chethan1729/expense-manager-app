@@ -2,7 +2,9 @@ import { useState } from "react";
 import { Expense } from "@/hooks/useExpenses";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Trash2, Check, X, Plus, Landmark, Lock } from "lucide-react";
+import { Trash2, Check, X, Plus, Landmark, Lock, ChevronDown, ChevronUp } from "lucide-react";
+import type { AmountSegregation } from "@/hooks/useExpenses";
+import { SourceAllocationDetails } from "./SourceAllocationDetails";
 
 interface ExpenseCardProps {
   expense: Expense;
@@ -14,6 +16,7 @@ interface ExpenseCardProps {
   isSimple?: boolean;       // daily-expenses, free-fund → hide total alloc/spent
   showBalanceTracking?: boolean; // hobby, loan, wishlist, learning, emergency, saving
   isSaving?: boolean;       // saving-fund → show lock-in option
+  getSourceAllocations?: (sourceType: string, sourceId: string) => { goalName: string; amount: number }[];
 }
 
 export function ExpenseCard({
@@ -26,6 +29,7 @@ export function ExpenseCard({
   isSimple = false,
   showBalanceTracking = false,
   isSaving = false,
+  getSourceAllocations,
 }: ExpenseCardProps) {
   const [editing, setEditing] = useState(false);
   const [desc, setDesc] = useState(expense.description);
@@ -40,6 +44,10 @@ export function ExpenseCard({
   const [totalSpent, setTotalSpent] = useState((expense.totalSpent || 0).toString());
   const [hasLockIn, setHasLockIn] = useState(!!(expense.lockedInAmount && expense.lockedInAmount > 0));
   const [lockedInAmount, setLockedInAmount] = useState((expense.lockedInAmount || 0).toString());
+  const [segregations, setSegregations] = useState<AmountSegregation[]>(expense.segregationDetails || []);
+  const [segSourceName, setSegSourceName] = useState("");
+  const [segAmount, setSegAmount] = useState("");
+  const [showSegregation, setShowSegregation] = useState(false);
 
   const remaining = expense.estimated - expense.spent;
   const progress = expense.estimated > 0 ? (expense.spent / expense.estimated) * 100 : 0;
@@ -63,6 +71,8 @@ export function ExpenseCard({
     setTotalSpent((expense.totalSpent || 0).toString());
     setHasLockIn(!!(expense.lockedInAmount && expense.lockedInAmount > 0));
     setLockedInAmount((expense.lockedInAmount || 0).toString());
+    setSegregations(expense.segregationDetails || []);
+    setSegSourceName(""); setSegAmount("");
     setEditing(true);
   };
 
@@ -80,6 +90,7 @@ export function ExpenseCard({
       emi: parseFloat(emi) || 0,
       saved: parseFloat(saved) || 0,
       lockedInAmount: hasLockIn ? (parseFloat(lockedInAmount) || 0) : 0,
+      segregationDetails: segregations.length > 0 ? segregations : undefined,
     };
 
     // Only pass totalAllocated/totalSpent explicitly for balance-tracking funds
@@ -115,10 +126,42 @@ export function ExpenseCard({
         </div>
 
         {isEmergency && (
-          <div>
-            <label className="text-xs text-muted-foreground mb-1 block font-bold text-accent">Current Saved (₹)</label>
-            <Input type="number" value={saved} onChange={(e) => setSaved(e.target.value)} placeholder="0" className="border-accent/30" />
-          </div>
+          <>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block font-bold text-accent">Current Saved (₹)</label>
+              <Input type="number" value={saved} onChange={(e) => setSaved(e.target.value)} placeholder="0" className="border-accent/30" />
+            </div>
+            {/* Source Segregation in edit mode */}
+            <div className="space-y-2 border-t pt-3">
+              <p className="text-xs font-semibold text-foreground">Source Breakdown</p>
+              <p className="text-[10px] text-muted-foreground -mt-1">Where is this amount kept?</p>
+              {segregations.map((seg, idx) => (
+                <div key={seg.id} className="flex items-center gap-2 text-xs bg-muted/50 rounded-lg px-3 py-2">
+                  <span className="flex-1 font-medium">{seg.sourceName}</span>
+                  <span className="text-primary font-bold">₹{seg.amount.toLocaleString('en-IN')}</span>
+                  <button
+                    type="button"
+                    onClick={() => setSegregations(p => p.filter((_, i) => i !== idx))}
+                    className="text-destructive hover:text-destructive/80"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
+              <div className="flex gap-2">
+                <Input value={segSourceName} onChange={e => setSegSourceName(e.target.value)} placeholder="Source (e.g. HDFC FD)" className="flex-1 h-8 text-xs" />
+                <Input type="number" value={segAmount} onChange={e => setSegAmount(e.target.value)} placeholder="Amount" className="w-28 h-8 text-xs" />
+                <Button type="button" size="sm" variant="outline" className="h-8 px-2" onClick={() => {
+                  if (!segSourceName.trim() || !segAmount) return;
+                  const newSeg: AmountSegregation = { id: crypto.randomUUID(), sourceName: segSourceName.trim(), amount: parseFloat(segAmount) };
+                  setSegregations(p => [...p, newSeg]);
+                  setSegSourceName(""); setSegAmount("");
+                }}>
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </>
         )}
 
         {isLoan && (
@@ -293,6 +336,36 @@ export function ExpenseCard({
             />
           </div>
           <span className="text-xs text-muted-foreground">{Math.round(progress)}% used</span>
+        </div>
+      )}
+
+      {isSaving && getSourceAllocations && (
+        <SourceAllocationDetails 
+          allocations={getSourceAllocations("saving-fund", expense.id)} 
+          totalAmount={(expense.totalAllocated || 0) - (expense.totalSpent || 0) + (expense.saved || 0)} 
+        />
+      )}
+
+      {/* Segregation details — only for emergency cards in read mode */}
+      {isEmergency && expense.segregationDetails && expense.segregationDetails.length > 0 && (
+        <div className="border-t pt-2 space-y-1">
+          <button
+            className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground w-full"
+            onClick={(e) => { e.stopPropagation(); setShowSegregation(p => !p); }}
+          >
+            {showSegregation ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+            {showSegregation ? "Hide" : "Show"} source breakdown ({expense.segregationDetails.length})
+          </button>
+          {showSegregation && (
+            <div className="space-y-1">
+              {expense.segregationDetails.map(seg => (
+                <div key={seg.id} className="flex items-center justify-between text-[10px] bg-muted/40 rounded px-2 py-1">
+                  <span className="text-muted-foreground">{seg.sourceName}</span>
+                  <span className="font-semibold text-primary">₹{seg.amount.toLocaleString('en-IN')}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Preferences } from "@capacitor/preferences";
 import { Capacitor, registerPlugin } from "@capacitor/core";
+import { useLLM } from "@/hooks/useLLM";
 
 interface SMSReaderNativePlugin {
   testConnection(): Promise<{ status: string }>;
@@ -8,12 +9,6 @@ interface SMSReaderNativePlugin {
 }
 
 const SMSReaderNative = registerPlugin<SMSReaderNativePlugin>("SMSReaderNative");
-// Dynamic import to avoid loading heavy ML library at app startup
-// which crashes Android WebView
-const loadPipeline = async () => {
-  const { pipeline } = await import("@xenova/transformers");
-  return pipeline;
-};
 
 export interface SMSTransaction {
   id: string;
@@ -53,10 +48,8 @@ export const useAutomatedTransactions = (funds: Fund[]) => {
   const [processedTransactions, setProcessedTransactions] = useState<SMSTransaction[]>([]);
   const [approvedHashes, setApprovedHashes] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
-  const [modelLoading, setModelLoading] = useState(false);
   const [learnedMappings, setLearnedMappings] = useState<Record<string, { fundId: string; expenseId: string; paymentMode?: string }>>({});
-  const modelRef = useRef<unknown>(null);
-  const modelInitializedRef = useRef(false);
+  const { initializeModel, generate, modelLoading } = useLLM();
 
   // Load pending transactions from storage
   useEffect(() => {
@@ -85,32 +78,7 @@ export const useAutomatedTransactions = (funds: Fund[]) => {
     return btoa(`${text}-${date}-${amount}`).substring(0, 32);
   }, []);
 
-  // Initialize Gemma model
-  const initializeModel = useCallback(async () => {
-    if (modelInitializedRef.current || modelRef.current) {
-      return modelRef.current;
-    }
-
-    setModelLoading(true);
-    try {
-      console.log("Loading Google Gemma 2B model...");
-      // Using Gemma-2B quantized model for lower resource usage
-      const pipelineFn = await loadPipeline();
-      const textGenerator = await pipelineFn(
-        "text-generation",
-        "Xenova/gemma-2b-it"
-      );
-      modelRef.current = textGenerator;
-      modelInitializedRef.current = true;
-      console.log("✓ Gemma 2B model loaded successfully");
-      return textGenerator;
-    } catch (error) {
-      console.error("Failed to load Gemma model:", error);
-      return null;
-    } finally {
-      setModelLoading(false);
-    }
-  }, []);
+  // Model initialization is now handled by the shared useLLM hook
 
   // Create prompt for categorization
   const createCategorizationPrompt = useCallback((transaction: SMSTransaction): string => {
@@ -118,7 +86,7 @@ export const useAutomatedTransactions = (funds: Fund[]) => {
       .map((f) => `- ${f.name} (${f.expenses.map((e) => e.description).join(", ")})`)
       .join("\n");
 
-    return `You are a transaction categorization expert for expense tracking. Analyze the following bank transaction and categorize it.
+    return `Analyze the following bank transaction and categorize it.
 
 Available Funds and Categories:
 ${fundList}
@@ -310,20 +278,19 @@ CONFIDENCE: 95`;
 
       // Try AI categorization if priority failed
       try {
-        const model = await initializeModel();
-        if (model) {
-          const prompt = createCategorizationPrompt(transaction);
-          const result = await model(prompt, {
-            max_new_tokens: 100,
-            temperature: 0.1,
-          });
+        await initializeModel();
+        const rawPrompt = createCategorizationPrompt(transaction);
+        const fullPrompt = `<|im_start|>system\nYou are a transaction categorization expert for expense tracking.<|im_end|>\n<|im_start|>user\n${rawPrompt}<|im_end|>\n<|im_start|>assistant\n`;
+        const resultText = await generate(fullPrompt, {
+          max_new_tokens: 100,
+          temperature: 0.1,
+        });
 
-          const aiCategorization = parseAIResponse(result[0].generated_text, transaction);
+        const aiCategorization = parseAIResponse(resultText, transaction);
           if (aiCategorization) {
             transaction.categorization = aiCategorization;
             return transaction;
           }
-        }
       } catch (error) {
         console.error("AI categorization failed, falling back to keyword matching:", error);
       }

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Wallet, Building2, BarChart3, Coins, Landmark, Activity, Receipt, Zap, ShieldCheck, PieChart, Share2, Target, TrendingUp, TrendingDown } from "lucide-react";
+import { Wallet, Building2, BarChart3, Coins, Landmark, Activity, Receipt, Zap, ShieldCheck, PieChart, Share2, Target, TrendingUp, TrendingDown, BrainCircuit } from "lucide-react";
 import { Share } from "@capacitor/share";
 import { useNetWorthHistory } from "@/hooks/useNetWorthHistory";
 import { useTransactions } from "@/hooks/useTransactions";
@@ -14,6 +14,7 @@ const menuCards = [
   { id: "expenses", label: "Expense Manager", icon: Wallet, desc: "Track & manage your monthly expenses", color: "bg-primary/10 text-primary" },
   { id: "transactions", label: "Transactions", icon: Receipt, desc: "Record & view quick transactions", color: "bg-indigo-100 text-indigo-600" },
   { id: "automated-transactions", label: "Automated Transactions", icon: Zap, desc: "AI-powered SMS transaction approval", color: "bg-purple-100 text-purple-600", badge: true },
+  { id: "finance-assistant", label: "Finance AI", icon: BrainCircuit, desc: "Chat with your personal finance assistant", color: "bg-violet-100 text-violet-600" },
   { id: "properties", label: "Properties", icon: Building2, desc: "Track your real estate investments", color: "bg-accent/10 text-accent" },
   { id: "goals", label: "Goals", icon: Target, desc: "Plan & track your financial goals", color: "bg-rose-100 text-rose-600" },
   { id: "reports", label: "Reports", icon: BarChart3, desc: "Visual insights & net worth", color: "bg-success/10 text-success" },

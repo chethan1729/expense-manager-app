@@ -1,6 +1,12 @@
 import { useState, useEffect, useMemo } from "react";
 import { Preferences } from "@capacitor/preferences";
 
+export interface AmountSegregation {
+  id: string;
+  sourceName: string;
+  amount: number;
+}
+
 export interface Expense {
   id: string;
   description: string;
@@ -13,6 +19,7 @@ export interface Expense {
   isFD?: boolean;
   preExistingFD?: number;
   lockedInAmount?: number; // Amount in lock-in period (for saving fund)
+  segregationDetails?: AmountSegregation[];
 }
 
 export interface InvestmentItem {
@@ -84,6 +91,17 @@ const defaultSections: FundSection[] = [
       { id: "inv3", name: "Mutual Fund", allocated: 0, invested: 0, currentValue: 0 },
       { id: "inv4", name: "Mutual Fund (Tax Saver)", allocated: 0, invested: 0, currentValue: 0 },
       { id: "inv5", name: "Crypto", allocated: 0, invested: 0, currentValue: 0 },
+    ],
+  },
+  {
+    id: "wife-investments",
+    name: "Wife's Investments",
+    budget: 0,
+    expenses: [],
+    investmentItems: [
+      { id: "wife-inv1", name: "Wife Equity Shares", allocated: 0, invested: 0, currentValue: 0 },
+      { id: "wife-inv2", name: "Wife Mutual Fund", allocated: 0, invested: 0, currentValue: 0 },
+      { id: "wife-inv3", name: "Wife Gold / Other", allocated: 0, invested: 0, currentValue: 0 },
     ],
   },
   { id: "hobby-fund", name: "Hobby Fund", budget: 0, expenses: [] },
@@ -181,6 +199,7 @@ export function useFundManager() {
             saved: e.saved,         // Carry forward saved balance
             preExistingFD: e.preExistingFD,   // Carry forward FD
             lockedInAmount: e.lockedInAmount, // Carry forward lock-in
+            segregationDetails: e.segregationDetails, // Carry forward amount segregation details
           })),
           investmentItems: s.investmentItems ? s.investmentItems.map(inv => ({
             ...inv,
@@ -280,10 +299,11 @@ export function useFundManager() {
 
   const activeSection = sectionsWithFreeFund.find((s) => s.id === activeSectionId) || null;
 
-  const updateExpense = (sectionId: string, expenseId: string, updates: Partial<Omit<Expense, "id">>) => {
+  const updateExpense = (sectionId: string, expenseId: string, updates: Partial<Omit<Expense, "id">>, targetMonthKey?: string) => {
     setMonthlyData((prev) => {
       const newData = { ...prev };
-      const current = newData[monthKey] || currentMonthData;
+      const targetKey = targetMonthKey || monthKey;
+      const current = newData[targetKey] || (targetMonthKey ? { sections: defaultSections, totalBudget: 0 } : currentMonthData);
       
       // Find the expense to calculate differences
       const section = current.sections.find(s => s.id === sectionId);
@@ -333,11 +353,11 @@ export function useFundManager() {
           : s
       );
 
-      newData[monthKey] = { ...current, sections: nextSections };
+      newData[targetKey] = { ...current, sections: nextSections };
 
       // Propagate totalAllocated/totalSpent to all FUTURE months
       const allKeys = Object.keys(newData).sort();
-      const currentIdx = allKeys.indexOf(monthKey);
+      const currentIdx = allKeys.indexOf(targetKey);
       if (currentIdx !== -1) {
         for (let i = currentIdx + 1; i < allKeys.length; i++) {
           const futureKey = allKeys[i];
@@ -375,7 +395,8 @@ export function useFundManager() {
     saved?: number,
     totalAllocated?: number,
     totalSpent?: number,
-    lockedInAmount?: number
+    lockedInAmount?: number,
+    segregationDetails?: AmountSegregation[]
   ) => {
     const newExpense: Expense = { 
       id: crypto.randomUUID(), 
@@ -389,6 +410,7 @@ export function useFundManager() {
       totalAllocated: totalAllocated !== undefined ? totalAllocated : estimated,
       totalSpent: totalSpent !== undefined ? totalSpent : spent,
       lockedInAmount,
+      segregationDetails,
     };
     setSections((prev) =>
       prev.map((s) => (s.id === sectionId ? { ...s, expenses: [...s.expenses, newExpense] } : s))
@@ -482,7 +504,7 @@ export function useFundManager() {
   };
 
   const getSectionTotals = (section: FundSection) => {
-    if (section.id === "investment-fund") {
+    if (section.id === "investment-fund" || section.id === "wife-investments") {
       const totalProfileAllocated = (section.investmentItems || []).reduce((sum, item) => sum + (item.allocated || 0), 0);
       const totalAllocated = Math.ceil(section.budget || totalProfileAllocated);
       const totalInvested = Math.ceil((section.investmentItems || []).reduce((sum, item) => sum + (item.invested || 0), 0));
@@ -589,6 +611,10 @@ export function useFundManager() {
     if (investmentSection?.investmentItems) {
       total += investmentSection.investmentItems.reduce((sum, i) => sum + (i.lockedInAmount || 0), 0);
     }
+    const wifeInvestmentSection = sectionsWithFreeFund.find(s => s.id === "wife-investments");
+    if (wifeInvestmentSection?.investmentItems) {
+      // excluded from main net worth / locked in totals
+    }
     // Saving fund lock-in
     const savingSection = sectionsWithFreeFund.find(s => s.id === "saving-fund");
     if (savingSection) {
@@ -599,6 +625,9 @@ export function useFundManager() {
 
   const overallTotals = sectionsWithFreeFund.reduce(
     (acc, s) => {
+      if (s.id === "wife-investments") {
+        return acc;
+      }
       const t = getSectionTotals(s);
       // For investment fund, we count the entire allocated amount as spent
       // because that money is set aside and no longer in the savings pool.
