@@ -17,6 +17,7 @@ const menuCards = [
   { id: "finance-assistant", label: "Finance AI", icon: BrainCircuit, desc: "Chat with your personal finance assistant", color: "bg-violet-100 text-violet-600" },
   { id: "properties", label: "Properties", icon: Building2, desc: "Track your real estate investments", color: "bg-accent/10 text-accent" },
   { id: "goals", label: "Goals", icon: Target, desc: "Plan & track your financial goals", color: "bg-rose-100 text-rose-600" },
+  { id: "wife-investments", label: "Wife's Investments", icon: Landmark, desc: "Manage your wife's portfolio separately", color: "bg-indigo-100 text-indigo-600" },
   { id: "reports", label: "Reports", icon: BarChart3, desc: "Visual insights & net worth", color: "bg-success/10 text-success" },
   { id: "metals", label: "Gold / Silver", icon: Coins, desc: "Manage your physical metal assets", color: "bg-amber-100 text-amber-600" },
   { id: "deposits", label: "Deposits", icon: Landmark, desc: "FD, EPF & other savings", color: "bg-teal-100 text-teal-700" },

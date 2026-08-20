@@ -375,6 +375,27 @@ const Index = () => {
           </div>
         );
       }
+      if (mainMenuPage === "wife-investments") {
+        const wifeInvestmentSection = sections.find((s) => s.id === "wife-investments");
+        const wifeInvestments = wifeInvestmentSection?.investmentItems || [];
+
+        return (
+          <div className="space-y-4">
+            <button onClick={() => setMainMenuPage(null)} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+              <ArrowLeft className="h-4 w-4" /> Back
+            </button>
+            <InvestmentFundView
+              budget={wifeInvestmentSection?.budget || 0}
+              items={wifeInvestments}
+              onUpdateBudget={(b) => updateSectionBudget("wife-investments", b)}
+              onAddItem={(itemData) => addInvestmentItem("wife-investments", itemData)}
+              onUpdateItem={(id, updates) => updateInvestmentItem("wife-investments", id, updates)}
+              onDeleteItem={(id) => deleteInvestmentItem("wife-investments", id)}
+              getSourceAllocations={goalsHook.getSourceAllocations}
+            />
+          </div>
+        );
+      }
       if (mainMenuPage === "reports") {
         return (
           <div className="space-y-4">
@@ -701,6 +722,7 @@ const Index = () => {
                 mainMenuPage === "deposits" ? "Deposits" :
                 mainMenuPage === "investment-planner" ? "Investment Planner" :
                 mainMenuPage === "goals" ? "Goals" :
+                mainMenuPage === "wife-investments" ? "Wife's Investments" :
                 mainMenuPage ? mainMenuPage.charAt(0).toUpperCase() + mainMenuPage.slice(1) : "Finance Hub"
               ) : "Debt Manager"}
             </h1>

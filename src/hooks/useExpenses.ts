@@ -130,6 +130,26 @@ const defaultSections: FundSection[] = [
   { id: "free-fund", name: "Free Fund", budget: 0, expenses: [] },
 ];
 
+const mergeSectionsWithDefaults = (sections: FundSection[]): FundSection[] => {
+  const byId = new Map(sections.map((s) => [s.id, s]));
+
+  return defaultSections.map((defaultSection) => {
+    const existing = byId.get(defaultSection.id);
+    if (!existing) {
+      return defaultSection;
+    }
+
+    return {
+      ...defaultSection,
+      ...existing,
+      budget: existing.budget ?? defaultSection.budget,
+      expenses: existing.expenses ?? defaultSection.expenses,
+      investmentItems: existing.investmentItems ?? defaultSection.investmentItems,
+      planningDuration: existing.planningDuration ?? defaultSection.planningDuration,
+    };
+  });
+};
+
 export function useFundManager() {
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
@@ -145,7 +165,17 @@ export function useFundManager() {
       try {
         const { value: storedData } = await Preferences.get({ key: STORAGE_KEY });
         if (storedData) {
-          setMonthlyData(JSON.parse(storedData));
+          const parsed = JSON.parse(storedData);
+          const migrated = Object.fromEntries(
+            Object.entries(parsed).map(([k, v]: [string, any]) => [
+              k,
+              {
+                ...v,
+                sections: mergeSectionsWithDefaults(v.sections || defaultSections),
+              },
+            ])
+          );
+          setMonthlyData(migrated);
         } else {
           // Initial migration from V3 if available
           const { value: v3Sections } = await Preferences.get({ key: "expense-manager-funds-v3" });
@@ -185,8 +215,10 @@ export function useFundManager() {
       const baseSections = lastKey ? monthlyData[lastKey].sections : defaultSections;
       const baseBudget = lastKey ? monthlyData[lastKey].totalBudget : 0;
 
+      const mergedSections = mergeSectionsWithDefaults(baseSections);
+
       return {
-        sections: baseSections.map(s => ({
+        sections: mergedSections.map(s => ({
           ...s,
           budget: s.budget, // carry forward budget for all funds
           expenses: s.expenses.map(e => ({

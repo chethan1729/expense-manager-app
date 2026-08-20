@@ -402,6 +402,20 @@ export function GoalsPage({ goalsHook, investmentItems, wifeInvestmentItems, fds
         const isExpanded = expandedId === goal.id;
         const [y, m] = goal.targetDate.split("-");
         const targetLabel = `${MONTHS[parseInt(m) - 1]} ${y}`;
+        const groupedFundingSources = goal.fundingSources.reduce((acc, source) => {
+          const group = acc.get(source.sourceType) || [];
+          group.push(source);
+          acc.set(source.sourceType, group);
+          return acc;
+        }, new Map<string, typeof goal.fundingSources>());
+        const fundingGroups = [
+          ["investment-profile", "Investment Profiles"],
+          ["wife-investment-profile", "Wife's Investments"],
+          ["fd", "Fixed Deposits"],
+          ["saving-fund", "Saving Funds"],
+          ["epf", "EPF"],
+          ["other-savings", "Other Savings"],
+        ] as const;
 
         return (
           <div key={goal.id} className="rounded-xl border bg-card overflow-hidden hover:border-primary/40 transition-all">
@@ -509,14 +523,24 @@ export function GoalsPage({ goalsHook, investmentItems, wifeInvestmentItems, fds
                   </div>
                 )}
                 {goal.fundingSources.length > 0 && (
-                  <div className="space-y-1.5">
+                  <div className="space-y-2 pt-3">
                     <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Funding Sources</p>
-                    {goal.fundingSources.map((f) => (
-                      <div key={f.id} className="flex justify-between items-center bg-primary/5 rounded-lg px-3 py-1.5">
-                        <span className="text-xs truncate pr-2">{f.sourceName}</span>
-                        <span className="text-xs font-bold text-primary">₹{f.allocatedAmount.toLocaleString("en-IN")}</span>
-                      </div>
-                    ))}
+                    {fundingGroups.map(([sourceType, label]) => {
+                      const items = groupedFundingSources.get(sourceType) || [];
+                      if (items.length === 0) return null;
+
+                      return (
+                        <div key={sourceType} className="space-y-1.5">
+                          <p className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wider">{label}</p>
+                          {items.map((f) => (
+                            <div key={f.id} className="flex justify-between items-center bg-primary/5 rounded-lg px-3 py-1.5">
+                              <span className="text-xs truncate pr-2">{f.sourceName}</span>
+                              <span className="text-xs font-bold text-primary">₹{f.allocatedAmount.toLocaleString("en-IN")}</span>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
