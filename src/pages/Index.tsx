@@ -90,6 +90,7 @@ const Index = () => {
 
   const [activeTab, setActiveTab] = useState("main");
   const [mainMenuPage, setMainMenuPage] = useState<string | null>(null);
+  const [debtNavigationKey, setDebtNavigationKey] = useState(0);
 
   const isHydrated = !fundLoading && !propertiesLoading && !debtsLoading;
 
@@ -387,6 +388,7 @@ const Index = () => {
             <InvestmentFundView
               budget={wifeInvestmentSection?.budget || 0}
               items={wifeInvestments}
+              sourceType="wife-investment-profile"
               onUpdateBudget={(b) => updateSectionBudget("wife-investments", b)}
               onAddItem={(itemData) => addInvestmentItem("wife-investments", itemData)}
               onUpdateItem={(id, updates) => updateInvestmentItem("wife-investments", id, updates)}
@@ -568,7 +570,7 @@ const Index = () => {
     }
 
     if (activeTab === "debt") {
-      return <DebtPage {...debtsHook} />;
+      return <DebtPage key={debtNavigationKey} {...debtsHook} />;
     }
 
     // Expense manager tab
@@ -754,6 +756,10 @@ const Index = () => {
         onTabChange={(tab) => { 
           if (tab === "expenses" && activeTab === "expenses") {
             setActiveSectionId("dashboard");
+          }
+          if (tab === "debt" && activeTab === "debt") {
+            setMainMenuPage(null);
+            setDebtNavigationKey((key) => key + 1);
           }
           setActiveTab(tab); 
           setMainMenuPage(null); 

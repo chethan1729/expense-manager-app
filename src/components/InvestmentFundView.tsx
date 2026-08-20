@@ -84,6 +84,7 @@ function BrokerSearch({ value, onChange, placeholder }: { value: string; onChang
 interface InvestmentFundViewProps {
   budget: number;
   items: InvestmentItem[];
+  sourceType?: "investment-profile" | "wife-investment-profile";
   onUpdateBudget: (budget: number) => void;
   onAddItem: (itemData: Omit<InvestmentItem, "id">) => void;
   onUpdateItem: (id: string, updates: Partial<Omit<InvestmentItem, "id">>) => void;
@@ -91,7 +92,7 @@ interface InvestmentFundViewProps {
   getSourceAllocations: (sourceType: string, sourceId: string) => { goalName: string; amount: number }[];
 }
 
-export function InvestmentFundView({ budget, items, onUpdateBudget, onAddItem, onUpdateItem, onDeleteItem, getSourceAllocations }: InvestmentFundViewProps) {
+export function InvestmentFundView({ budget, items, sourceType = "investment-profile", onUpdateBudget, onAddItem, onUpdateItem, onDeleteItem, getSourceAllocations }: InvestmentFundViewProps) {
   const [editingBudget, setEditingBudget] = useState(false);
   const [budgetVal, setBudgetVal] = useState(budget.toString());
   const [addingNew, setAddingNew] = useState(false);
@@ -696,7 +697,7 @@ export function InvestmentFundView({ budget, items, onUpdateBudget, onAddItem, o
               </div>
 
               <SourceAllocationDetails 
-                allocations={getSourceAllocations("investment-profile", item.id)} 
+                allocations={getSourceAllocations(sourceType, item.id)} 
                 totalAmount={item.currentValue || 0} 
               />
             </div>

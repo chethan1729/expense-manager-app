@@ -8,6 +8,7 @@ export interface Property {
   totalSqft: number;
   purchaseRatePerSqft: number;
   currentRatePerSqft: number;
+  loanInProgress?: boolean;
   image?: string;        // Base64 encoded property photo
   locationUrl?: string;  // Google Maps URL
   driveUrl?: string;     // Google Drive folder link
@@ -62,8 +63,12 @@ export function useProperties() {
     setProperties((prev) => prev.filter((p) => p.id !== id));
   };
 
-  const totalPropertyValue = properties.reduce((sum, p) => sum + (p.totalSqft || 0) * (p.currentRatePerSqft || 0), 0);
-  const totalPurchaseValue = properties.reduce((sum, p) => sum + (p.totalSqft || 0) * (p.purchaseRatePerSqft || 0), 0);
+  const totalPropertyValue = properties
+    .filter((p) => !p.loanInProgress)
+    .reduce((sum, p) => sum + (p.totalSqft || 0) * (p.currentRatePerSqft || 0), 0);
+  const totalPurchaseValue = properties
+    .filter((p) => !p.loanInProgress)
+    .reduce((sum, p) => sum + (p.totalSqft || 0) * (p.purchaseRatePerSqft || 0), 0);
 
   return { properties, addProperty, updateProperty, deleteProperty, totalPropertyValue, totalPurchaseValue, loading };
 }

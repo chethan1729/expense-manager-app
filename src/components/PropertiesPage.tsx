@@ -11,14 +11,14 @@ export function PropertiesPage(props: ReturnType<typeof useProperties>) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({
     name: "", description: "", totalSqft: "", purchaseRatePerSqft: "", currentRatePerSqft: "",
-    image: "", locationUrl: "", driveUrl: "",
+    image: "", locationUrl: "", driveUrl: "", loanInProgress: false,
   });
 
   const appreciation = totalPurchaseValue > 0 ? ((totalPropertyValue - totalPurchaseValue) / totalPurchaseValue) * 100 : 0;
 
   const resetForm = () => setForm({
     name: "", description: "", totalSqft: "", purchaseRatePerSqft: "", currentRatePerSqft: "",
-    image: "", locationUrl: "", driveUrl: "",
+    image: "", locationUrl: "", driveUrl: "", loanInProgress: false,
   });
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -43,6 +43,7 @@ export function PropertiesPage(props: ReturnType<typeof useProperties>) {
       image: form.image || undefined,
       locationUrl: form.locationUrl.trim() || undefined,
       driveUrl: form.driveUrl.trim() || undefined,
+      loanInProgress: form.loanInProgress,
     });
     resetForm();
     setAdding(false);
@@ -59,6 +60,7 @@ export function PropertiesPage(props: ReturnType<typeof useProperties>) {
       image: p.image || "",
       locationUrl: p.locationUrl || "",
       driveUrl: p.driveUrl || "",
+      loanInProgress: !!p.loanInProgress,
     });
   };
 
@@ -73,6 +75,7 @@ export function PropertiesPage(props: ReturnType<typeof useProperties>) {
       image: form.image || undefined,
       locationUrl: form.locationUrl.trim() || undefined,
       driveUrl: form.driveUrl.trim() || undefined,
+      loanInProgress: form.loanInProgress,
     });
     setEditingId(null);
     resetForm();
@@ -140,6 +143,15 @@ export function PropertiesPage(props: ReturnType<typeof useProperties>) {
           {" → "}Current value: <span className="font-medium text-foreground">₹{((parseFloat(form.totalSqft) || 0) * (parseFloat(form.currentRatePerSqft) || 0)).toLocaleString('en-IN')}</span>
         </p>
       )}
+      <label className="flex items-center gap-2 text-sm text-muted-foreground">
+        <input
+          type="checkbox"
+          checked={form.loanInProgress}
+          onChange={(e) => setForm({ ...form, loanInProgress: e.target.checked })}
+          className="rounded border-input"
+        />
+        Loan is in progress (exclude from net worth)
+      </label>
       <div className="flex gap-2 justify-between">
         {showDelete ? (
           <Button size="sm" variant="ghost" className="text-destructive" onClick={() => { deleteProperty(showDelete); setEditingId(null); resetForm(); }}>
@@ -215,6 +227,11 @@ export function PropertiesPage(props: ReturnType<typeof useProperties>) {
 
             {/* Details section */}
             <div className="p-4 space-y-2">
+              {p.loanInProgress && (
+                <div className="rounded-md bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-2 py-1 text-[10px] font-medium uppercase tracking-wide text-amber-700 dark:text-amber-300">
+                  Loan in progress · excluded from reports
+                </div>
+              )}
               <div className="grid grid-cols-3 gap-2 text-xs">
                 <div>
                   <span className="text-muted-foreground block">Purchase</span>

@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   Plus, Trash2, Check, X, Target, Calendar, TrendingUp, Wallet,
   ChevronDown, ChevronUp, AlertCircle, Image as ImageIcon,
+  LayoutGrid, List,
 } from "lucide-react";
 import type { InvestmentItem, Expense } from "@/hooks/useExpenses";
 import type { FDEntry, EPFEntry, OtherSavingsEntry } from "@/hooks/useDeposits";
@@ -35,6 +36,7 @@ export function GoalsPage({ goalsHook, investmentItems, wifeInvestmentItems, fds
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [goalViewMode, setGoalViewMode] = useState<"grid" | "list">("grid");
 
   // Form state
   const [formName, setFormName] = useState("");
@@ -383,171 +385,227 @@ export function GoalsPage({ goalsHook, investmentItems, wifeInvestmentItems, fds
     return { bg: "bg-orange-500", text: "text-orange-600", label: "At Risk" };
   };
 
+  const renderFundingGroups = (goal: Goal) => {
+    const groupedFundingSources = goal.fundingSources.reduce((acc, source) => {
+      const group = acc.get(source.sourceType) || [];
+      group.push(source);
+      acc.set(source.sourceType, group);
+      return acc;
+    }, new Map<string, typeof goal.fundingSources>());
+
+    const fundingGroups = [
+      ["investment-profile", "Investment Profiles"],
+      ["wife-investment-profile", "Wife's Investments"],
+      ["fd", "Fixed Deposits"],
+      ["saving-fund", "Saving Funds"],
+      ["epf", "EPF"],
+      ["other-savings", "Other Savings"],
+    ] as const;
+
+    return (
+      <div className="space-y-2 pt-3">
+        <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Funding Sources</p>
+        {fundingGroups.map(([sourceType, label]) => {
+          const items = groupedFundingSources.get(sourceType) || [];
+          if (items.length === 0) return null;
+
+          return (
+            <div key={sourceType} className="space-y-1.5">
+              <p className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wider">{label}</p>
+              {items.map((f) => (
+                <div key={f.id} className="flex justify-between items-center bg-primary/5 rounded-lg px-3 py-1.5">
+                  <span className="text-xs truncate pr-2">{f.sourceName}</span>
+                  <span className="text-xs font-bold text-primary">₹{f.allocatedAmount.toLocaleString("en-IN")}</span>
+                </div>
+              ))}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="font-heading font-semibold text-foreground">My Goals</h2>
-        <Button size="sm" variant="outline" onClick={() => { resetForm(); setAdding(true); setEditingId(null); }}>
-          <Plus className="h-4 w-4 mr-1" /> Add Goal
-        </Button>
+        <div className="flex items-center gap-2">
+          <div className="flex rounded-lg border bg-card p-1">
+            <button type="button" onClick={() => setGoalViewMode("grid")} className={`h-8 w-8 rounded-md flex items-center justify-center ${goalViewMode === "grid" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`} aria-label="Grid view">
+              <LayoutGrid className="h-4 w-4" />
+            </button>
+            <button type="button" onClick={() => setGoalViewMode("list")} className={`h-8 w-8 rounded-md flex items-center justify-center ${goalViewMode === "list" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`} aria-label="List view">
+              <List className="h-4 w-4" />
+            </button>
+          </div>
+          <Button size="sm" variant="outline" onClick={() => { resetForm(); setAdding(true); setEditingId(null); }}>
+            <Plus className="h-4 w-4 mr-1" /> Add Goal
+          </Button>
+        </div>
       </div>
 
       {adding && renderGoalForm()}
 
-      {goals.map((goal) => {
-        if (editingId === goal.id) return <div key={goal.id}>{renderGoalForm()}</div>;
+      {goalViewMode === "list" ? (
+        goals.map((goal) => {
+          const progress = getGoalProgress(goal);
+          const isExpanded = expandedId === goal.id;
+          const status = getStatusColor(progress);
 
-        const progress = getGoalProgress(goal);
-        const status = getStatusColor(progress);
-        const isExpanded = expandedId === goal.id;
-        const [y, m] = goal.targetDate.split("-");
-        const targetLabel = `${MONTHS[parseInt(m) - 1]} ${y}`;
-        const groupedFundingSources = goal.fundingSources.reduce((acc, source) => {
-          const group = acc.get(source.sourceType) || [];
-          group.push(source);
-          acc.set(source.sourceType, group);
-          return acc;
-        }, new Map<string, typeof goal.fundingSources>());
-        const fundingGroups = [
-          ["investment-profile", "Investment Profiles"],
-          ["wife-investment-profile", "Wife's Investments"],
-          ["fd", "Fixed Deposits"],
-          ["saving-fund", "Saving Funds"],
-          ["epf", "EPF"],
-          ["other-savings", "Other Savings"],
-        ] as const;
+          return (
+            <div key={goal.id} className="rounded-xl border bg-card overflow-hidden">
+              <button type="button" onClick={() => setExpandedId(isExpanded ? null : goal.id)} className="w-full text-left p-4 flex items-center justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="font-heading font-semibold text-sm truncate">{goal.name}</p>
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full text-white ${status.bg}`}>{status.label}</span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-1">Current balance: ₹{progress.totalFunded.toLocaleString("en-IN")}</p>
+                </div>
+                <div className="flex items-center gap-3 shrink-0">
+                  <div className="text-right">
+                    <p className="text-[10px] text-muted-foreground">Target</p>
+                    <p className="text-xs font-bold">₹{goal.targetAmount.toLocaleString("en-IN")}</p>
+                  </div>
+                  {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                </div>
+              </button>
 
-        return (
-          <div key={goal.id} className="rounded-xl border bg-card overflow-hidden hover:border-primary/40 transition-all">
-            {/* Header */}
-            {goal.image ? (
-              <div className="relative h-36 w-full cursor-pointer" onClick={() => openEdit(goal)}>
-                <img src={goal.image} alt={goal.name} className="h-full w-full object-cover" />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
-                <div className="absolute inset-0 p-4 flex items-end justify-between">
-                  <div className="flex-1 min-w-0 pr-3">
-                    <h3 className="font-heading font-bold text-white text-sm drop-shadow-md">{goal.name}</h3>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-xs text-white/80 flex items-center gap-1">
-                        <Calendar className="h-3 w-3" /> {targetLabel}
-                      </span>
-                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full text-white ${status.bg}`}>{status.label}</span>
+              {isExpanded && (
+                <div className="border-t px-4 py-3 space-y-3">
+                  {goal.subTargets.length > 0 && (
+                    <div className="space-y-1.5">
+                      <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Sub-targets</p>
+                      {goal.subTargets.map((st) => (
+                        <div key={st.id} className="flex justify-between items-center bg-muted/20 rounded-lg px-3 py-1.5">
+                          <span className="text-xs">{st.name}</span>
+                          <span className="text-xs font-medium">₹{st.amount.toLocaleString("en-IN")}</span>
+                        </div>
+                      ))}
                     </div>
-                  </div>
-                  {/* Circular progress */}
-                  <div className="relative h-12 w-12 shrink-0 bg-black/25 rounded-full p-0.5">
-                    <svg className="h-11 w-11 -rotate-90" viewBox="0 0 36 36">
-                      <circle cx="18" cy="18" r="15" fill="none" stroke="white/20" strokeWidth="3" />
-                      <circle cx="18" cy="18" r="15" fill="none" stroke="white" strokeWidth="3" strokeDasharray={`${Math.min(progress.percent, 100) * 0.9425} 94.25`} strokeLinecap="round" />
-                    </svg>
-                    <span className="absolute inset-0 flex items-center justify-center text-[9px] font-bold text-white">
-                      {Math.round(progress.percent)}%
-                    </span>
-                  </div>
-                </div>
-              </div>
-            ) : null}
-
-            <div className="p-4 space-y-3 cursor-pointer" onClick={() => openEdit(goal)}>
-              {!goal.image && (
-                <div className="flex items-start justify-between">
-                  <div className="flex-1 min-w-0 pr-3">
-                    <h3 className="font-heading font-bold text-sm text-card-foreground">{goal.name}</h3>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-xs text-muted-foreground flex items-center gap-1">
-                        <Calendar className="h-3 w-3" /> {targetLabel}
-                      </span>
-                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full text-white ${status.bg}`}>{status.label}</span>
-                    </div>
-                  </div>
-                  {/* Circular progress */}
-                  <div className="relative h-12 w-12 shrink-0">
-                    <svg className="h-12 w-12 -rotate-90" viewBox="0 0 36 36">
-                      <circle cx="18" cy="18" r="15" fill="none" stroke="currentColor" strokeWidth="3" className="text-muted/30" />
-                      <circle cx="18" cy="18" r="15" fill="none" strokeWidth="3" strokeDasharray={`${Math.min(progress.percent, 100) * 0.9425} 94.25`} strokeLinecap="round" className={status.text} />
-                    </svg>
-                    <span className={`absolute inset-0 flex items-center justify-center text-[9px] font-bold ${status.text}`}>
-                      {Math.round(progress.percent)}%
-                    </span>
-                  </div>
-                </div>
-              )}
-
-              {/* Progress bar */}
-              <div className="space-y-1">
-                <div className="flex justify-between text-[11px]">
-                  <span className="text-muted-foreground">₹{progress.totalFunded.toLocaleString("en-IN")} funded</span>
-                  <span className="font-medium">₹{goal.targetAmount.toLocaleString("en-IN")}</span>
-                </div>
-                <div className="h-2 rounded-full bg-muted/40 overflow-hidden">
-                  <div className={`h-full rounded-full transition-all ${status.bg}`} style={{ width: `${Math.min(progress.percent, 100)}%` }} />
-                </div>
-              </div>
-
-              {/* Monthly savings info */}
-              {progress.remaining > 0 && progress.monthsLeft > 0 && (
-                <div className="flex items-center gap-1.5 bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/30 rounded-lg px-3 py-2">
-                  <AlertCircle className="h-3.5 w-3.5 text-amber-500 shrink-0" />
-                  <p className="text-[11px] text-amber-700 dark:text-amber-400">
-                    <span className="font-bold">{progress.monthsLeft} month{progress.monthsLeft !== 1 ? "s" : ""}</span> left · Save <span className="font-bold">₹{Math.ceil(progress.perMonth).toLocaleString("en-IN")}/mo</span> to reach target
-                  </p>
-                </div>
-              )}
-              {progress.remaining > 0 && progress.monthsLeft <= 0 && (
-                <div className="flex items-center gap-1.5 bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 rounded-lg px-3 py-2">
-                  <AlertCircle className="h-3.5 w-3.5 text-red-500 shrink-0" />
-                  <p className="text-[11px] text-red-700 dark:text-red-400">
-                    Target date passed · <span className="font-bold">₹{progress.remaining.toLocaleString("en-IN")}</span> still needed
-                  </p>
+                  )}
+                  {goal.fundingSources.length > 0 && renderFundingGroups(goal)}
                 </div>
               )}
             </div>
+          );
+        })
+      ) : (
+        goals.map((goal) => {
+          if (editingId === goal.id) return <div key={goal.id}>{renderGoalForm()}</div>;
 
-            {/* Expandable details */}
-            <button className="w-full border-t px-4 py-2 flex items-center justify-center gap-1 text-xs text-muted-foreground hover:bg-muted/30 transition-colors" onClick={() => setExpandedId(isExpanded ? null : goal.id)}>
-              {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-              {isExpanded ? "Hide" : "Show"} Details
-            </button>
+          const progress = getGoalProgress(goal);
+          const status = getStatusColor(progress);
+          const isExpanded = expandedId === goal.id;
+          const [y, m] = goal.targetDate.split("-");
+          const targetLabel = `${MONTHS[parseInt(m) - 1]} ${y}`;
 
-            {isExpanded && (
-              <div className="px-4 pb-4 space-y-3 border-t">
-                {goal.subTargets.length > 0 && (
-                  <div className="space-y-1.5 pt-3">
-                    <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Sub-targets</p>
-                    {goal.subTargets.map((st) => (
-                      <div key={st.id} className="flex justify-between items-center bg-muted/20 rounded-lg px-3 py-1.5">
-                        <span className="text-xs">{st.name}</span>
-                        <span className="text-xs font-medium">₹{st.amount.toLocaleString("en-IN")}</span>
+          return (
+            <div key={goal.id} className="rounded-xl border bg-card overflow-hidden hover:border-primary/40 transition-all">
+              {goal.image ? (
+                <div className="relative h-36 w-full cursor-pointer" onClick={() => openEdit(goal)}>
+                  <img src={goal.image} alt={goal.name} className="h-full w-full object-cover" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+                  <div className="absolute inset-0 p-4 flex items-end justify-between">
+                    <div className="flex-1 min-w-0 pr-3">
+                      <h3 className="font-heading font-bold text-white text-sm drop-shadow-md">{goal.name}</h3>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-xs text-white/80 flex items-center gap-1">
+                          <Calendar className="h-3 w-3" /> {targetLabel}
+                        </span>
+                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full text-white ${status.bg}`}>{status.label}</span>
                       </div>
-                    ))}
+                    </div>
+                    <div className="relative h-12 w-12 shrink-0 bg-black/25 rounded-full p-0.5">
+                      <svg className="h-11 w-11 -rotate-90" viewBox="0 0 36 36">
+                        <circle cx="18" cy="18" r="15" fill="none" stroke="white/20" strokeWidth="3" />
+                        <circle cx="18" cy="18" r="15" fill="none" stroke="white" strokeWidth="3" strokeDasharray={`${Math.min(progress.percent, 100) * 0.9425} 94.25`} strokeLinecap="round" />
+                      </svg>
+                      <span className="absolute inset-0 flex items-center justify-center text-[9px] font-bold text-white">
+                        {Math.round(progress.percent)}%
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
+              <div className="p-4 space-y-3 cursor-pointer" onClick={() => openEdit(goal)}>
+                {!goal.image && (
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1 min-w-0 pr-3">
+                      <h3 className="font-heading font-bold text-sm text-card-foreground">{goal.name}</h3>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-xs text-muted-foreground flex items-center gap-1">
+                          <Calendar className="h-3 w-3" /> {targetLabel}
+                        </span>
+                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full text-white ${status.bg}`}>{status.label}</span>
+                      </div>
+                    </div>
+                    <div className="relative h-12 w-12 shrink-0">
+                      <svg className="h-12 w-12 -rotate-90" viewBox="0 0 36 36">
+                        <circle cx="18" cy="18" r="15" fill="none" stroke="currentColor" strokeWidth="3" className="text-muted/30" />
+                        <circle cx="18" cy="18" r="15" fill="none" strokeWidth="3" strokeDasharray={`${Math.min(progress.percent, 100) * 0.9425} 94.25`} strokeLinecap="round" className={status.text} />
+                      </svg>
+                      <span className={`absolute inset-0 flex items-center justify-center text-[9px] font-bold ${status.text}`}>
+                        {Math.round(progress.percent)}%
+                      </span>
+                    </div>
                   </div>
                 )}
-                {goal.fundingSources.length > 0 && (
-                  <div className="space-y-2 pt-3">
-                    <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Funding Sources</p>
-                    {fundingGroups.map(([sourceType, label]) => {
-                      const items = groupedFundingSources.get(sourceType) || [];
-                      if (items.length === 0) return null;
 
-                      return (
-                        <div key={sourceType} className="space-y-1.5">
-                          <p className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wider">{label}</p>
-                          {items.map((f) => (
-                            <div key={f.id} className="flex justify-between items-center bg-primary/5 rounded-lg px-3 py-1.5">
-                              <span className="text-xs truncate pr-2">{f.sourceName}</span>
-                              <span className="text-xs font-bold text-primary">₹{f.allocatedAmount.toLocaleString("en-IN")}</span>
-                            </div>
-                          ))}
-                        </div>
-                      );
-                    })}
+                <div className="space-y-1">
+                  <div className="flex justify-between text-[11px]">
+                    <span className="text-muted-foreground">₹{progress.totalFunded.toLocaleString("en-IN")} funded</span>
+                    <span className="font-medium">₹{goal.targetAmount.toLocaleString("en-IN")}</span>
+                  </div>
+                  <div className="h-2 rounded-full bg-muted/40 overflow-hidden">
+                    <div className={`h-full rounded-full transition-all ${status.bg}`} style={{ width: `${Math.min(progress.percent, 100)}%` }} />
+                  </div>
+                </div>
+
+                {progress.remaining > 0 && progress.monthsLeft > 0 && (
+                  <div className="flex items-center gap-1.5 bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/30 rounded-lg px-3 py-2">
+                    <AlertCircle className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                    <p className="text-[11px] text-amber-700 dark:text-amber-400">
+                      <span className="font-bold">{progress.monthsLeft} month{progress.monthsLeft !== 1 ? "s" : ""}</span> left · Save <span className="font-bold">₹{Math.ceil(progress.perMonth).toLocaleString("en-IN")}/mo</span> to reach target
+                    </p>
+                  </div>
+                )}
+                {progress.remaining > 0 && progress.monthsLeft <= 0 && (
+                  <div className="flex items-center gap-1.5 bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 rounded-lg px-3 py-2">
+                    <AlertCircle className="h-3.5 w-3.5 text-red-500 shrink-0" />
+                    <p className="text-[11px] text-red-700 dark:text-red-400">
+                      Target date passed · <span className="font-bold">₹{progress.remaining.toLocaleString("en-IN")}</span> still needed
+                    </p>
                   </div>
                 )}
               </div>
-            )}
-          </div>
-        );
-      })}
+
+              <button className="w-full border-t px-4 py-2 flex items-center justify-center gap-1 text-xs text-muted-foreground hover:bg-muted/30 transition-colors" onClick={() => setExpandedId(isExpanded ? null : goal.id)}>
+                {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                {isExpanded ? "Hide" : "Show"} Details
+              </button>
+
+              {isExpanded && (
+                <div className="px-4 pb-4 space-y-3 border-t">
+                  {goal.subTargets.length > 0 && (
+                    <div className="space-y-1.5 pt-3">
+                      <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Sub-targets</p>
+                      {goal.subTargets.map((st) => (
+                        <div key={st.id} className="flex justify-between items-center bg-muted/20 rounded-lg px-3 py-1.5">
+                          <span className="text-xs">{st.name}</span>
+                          <span className="text-xs font-medium">₹{st.amount.toLocaleString("en-IN")}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {goal.fundingSources.length > 0 && renderFundingGroups(goal)}
+                </div>
+              )}
+            </div>
+          );
+        })
+      )}
 
       {goals.length === 0 && !adding && (
         <div className="text-center py-12 text-muted-foreground">

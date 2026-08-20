@@ -679,7 +679,9 @@ export function useFundManager() {
     totalSpent: overallTotals.spent,
     totalRemaining: totalBudget - overallTotals.spent,
     unallocatedBudget,
-    sections: sectionsWithFreeFund.map((s) => ({ ...s, totals: getSectionTotals(s) })),
+    sections: sectionsWithFreeFund
+      .filter((s) => s.id !== "wife-investments")
+      .map((s) => ({ ...s, totals: getSectionTotals(s) })),
   };
 
   return {
