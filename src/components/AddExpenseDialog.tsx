@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Plus, Landmark, Lock, Trash2 } from "lucide-react";
 import type { AmountSegregation } from "@/hooks/useExpenses";
+import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 
 interface AddExpenseDialogProps {
   onAdd: (description: string, estimated: number, spent: number, isFD?: boolean, preExistingFD?: number, emi?: number, saved?: number, totalAllocated?: number, totalSpent?: number, lockedInAmount?: number, segregationDetails?: AmountSegregation[]) => void;
@@ -96,13 +97,12 @@ export function AddExpenseDialog({ onAdd, showFDOption, isEmergency, isLoan, sho
                   <div key={idx} className="flex items-center gap-2 text-xs bg-muted/50 rounded-lg px-3 py-2">
                     <span className="flex-1 font-medium">{seg.sourceName}</span>
                     <span className="text-primary font-bold">₹{(parseFloat(seg.amount) || 0).toLocaleString('en-IN')}</span>
-                    <button
+                    <ConfirmDeleteDialog title="Remove this source?" description="This source amount will be removed from the breakdown." onConfirm={() => setSegregations(p => p.filter((_, i) => i !== idx))}>
+                      <button
                       type="button"
-                      onClick={() => setSegregations(p => p.filter((_, i) => i !== idx))}
                       className="text-destructive hover:text-destructive/80"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
+                      ><Trash2 className="h-3.5 w-3.5" /></button>
+                    </ConfirmDeleteDialog>
                   </div>
                 ))}
                 <div className="flex gap-2">

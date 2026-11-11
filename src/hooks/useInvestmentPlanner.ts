@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Preferences } from "@capacitor/preferences";
+import { useSupabaseSnapshotSync } from "@/lib/expenseManagerSupabase";
 
 export interface SubAsset {
   id: string;
@@ -27,6 +28,8 @@ const STORAGE_KEY = "investment-diversification-plans";
 export function useInvestmentPlanner() {
   const [plans, setPlans] = useState<DiversificationPlan[]>([]);
   const [loading, setLoading] = useState(true);
+
+  useSupabaseSnapshotSync(plans, !loading);
 
   useEffect(() => {
     const loadPlans = async () => {

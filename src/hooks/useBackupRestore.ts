@@ -1,29 +1,6 @@
 import { useCallback } from "react";
 import { Preferences } from "@capacitor/preferences";
 
-const PREFERENCES_KEYS = [
-  "expense-manager-monthly-v1",
-  "expense-manager-monthly-budget-v1",
-  "automated-transactions-last-sms-timestamp",
-  "automated-transactions-pending",
-  "automated-transactions-processed",
-  "automated-transactions-approved-hashes",
-  "automated-transactions-learned-mappings",
-  "expense-manager-transactions-v1",
-  "expense-manager-properties",
-  "expense-manager-deposits-v1",
-  "expense-manager-debts",
-  "expense-manager-loans",
-  "expense-manager-goals",
-  "expense-manager-investment-plans",
-];
-
-const LOCAL_STORAGE_KEYS = [
-  "precious-metals",
-  "metal-rates",
-  "net-worth-history",
-];
-
 const BACKUP_METADATA_KEY = "last-backup-timestamp";
 
 export const useBackupRestore = () => {
@@ -32,28 +9,29 @@ export const useBackupRestore = () => {
       const backupData: {
         version: string;
         timestamp: string;
-        preferences: Record<string, unknown>;
-        localStorage: Record<string, unknown>;
+        preferences: Record<string, string>;
+        localStorage: Record<string, string>;
       } = {
-        version: "1.0",
+        version: "2.0",
         timestamp: new Date().toISOString(),
         preferences: {},
         localStorage: {},
       };
 
-      // Get all Preferences data
-      for (const key of PREFERENCES_KEYS) {
+      // Snapshot every stored Preferences key so new features are included automatically.
+      const { keys } = await Preferences.keys();
+      for (const key of keys) {
         const { value } = await Preferences.get({ key });
         if (value) {
-          backupData.preferences[key] = JSON.parse(value);
+          backupData.preferences[key] = value;
         }
       }
 
-      // Get all LocalStorage data
-      for (const key of LOCAL_STORAGE_KEYS) {
+      // Snapshot all app-origin local storage, including future feature stores.
+      for (const key of Object.keys(localStorage)) {
         const value = localStorage.getItem(key);
         if (value) {
-          backupData.localStorage[key] = JSON.parse(value);
+          backupData.localStorage[key] = value;
         }
       }
 
@@ -65,6 +43,7 @@ export const useBackupRestore = () => {
   }, []);
 
   const importData = useCallback(async (jsonData: {
+    version?: string;
     preferences?: Record<string, unknown>;
     localStorage?: Record<string, unknown>;
   }) => {
@@ -74,12 +53,24 @@ export const useBackupRestore = () => {
         throw new Error("Invalid backup file: Missing data sections.");
       }
 
+      const isRawSnapshot = jsonData.version?.startsWith("2.") ?? false;
+
+      // A v2 backup is a complete snapshot; remove newer keys absent from it.
+      if (isRawSnapshot) {
+        const { keys } = await Preferences.keys();
+        const backupKeys = new Set(Object.keys(jsonData.preferences || {}));
+        await Promise.all(keys.filter((key) => !backupKeys.has(key)).map((key) => Preferences.remove({ key })));
+        const localKeys = Object.keys(localStorage);
+        const backupLocalKeys = new Set(Object.keys(jsonData.localStorage || {}));
+        localKeys.filter((key) => !backupLocalKeys.has(key)).forEach((key) => localStorage.removeItem(key));
+      }
+
       // Restore Preferences
       if (jsonData.preferences) {
         for (const [key, value] of Object.entries(jsonData.preferences)) {
           await Preferences.set({
             key,
-            value: JSON.stringify(value),
+            value: isRawSnapshot && typeof value === "string" ? value : JSON.stringify(value),
           });
         }
       }
@@ -87,7 +78,7 @@ export const useBackupRestore = () => {
       // Restore LocalStorage
       if (jsonData.localStorage) {
         for (const [key, value] of Object.entries(jsonData.localStorage)) {
-          localStorage.setItem(key, JSON.stringify(value));
+          localStorage.setItem(key, isRawSnapshot && typeof value === "string" ? value : JSON.stringify(value));
         }
       }
 

@@ -69,6 +69,18 @@ export function useGoals() {
     setGoals((prev) => prev.filter((g) => g.id !== id));
   };
 
+  const reorderGoals = (activeId: string, overId: string) => {
+    setGoals((prev) => {
+      const oldIndex = prev.findIndex((goal) => goal.id === activeId);
+      const newIndex = prev.findIndex((goal) => goal.id === overId);
+      if (oldIndex < 0 || newIndex < 0 || oldIndex === newIndex) return prev;
+      const next = [...prev];
+      const [moved] = next.splice(oldIndex, 1);
+      next.splice(newIndex, 0, moved);
+      return next;
+    });
+  };
+
   // Calculate how much of a given source is already allocated across ALL goals (or all goals except one)
   const getSourceAllocated = (sourceType: string, sourceId: string, excludeGoalId?: string) => {
     return goals
@@ -121,6 +133,7 @@ export function useGoals() {
     addGoal,
     updateGoal,
     deleteGoal,
+    reorderGoals,
     getSourceAllocated,
     getSourceAllocations,
     getGoalProgress,

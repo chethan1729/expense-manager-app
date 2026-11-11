@@ -248,6 +248,22 @@ export function summarizeLoanMetrics(loan: Loan) {
   };
 }
 
+function migrateLoanBalances(loan: Loan): Loan {
+  const transactions = loan.transactions || [];
+  if (transactions.length === 0) return loan;
+
+  const transactionPrincipal = transactions.reduce((sum, tx) => sum + (tx.principal || (!tx.kind ? tx.amount || 0 : 0)), 0);
+  const transactionInterest = transactions.reduce((sum, tx) => sum + (tx.interest || 0), 0);
+  const initialPrincipalPaid = loan.initialPrincipalPaid === undefined || loan.initialPrincipalPaid === loan.principalPaid
+    ? Math.max(0, (loan.principalPaid || 0) - transactionPrincipal)
+    : loan.initialPrincipalPaid;
+  const initialInterestPaid = loan.initialInterestPaid === undefined || loan.initialInterestPaid === loan.interestPaid
+    ? Math.max(0, (loan.interestPaid || 0) - transactionInterest)
+    : loan.initialInterestPaid;
+
+  return { ...loan, initialPrincipalPaid, initialInterestPaid };
+}
+
 const DEBT_KEY = "expense-manager-debts";
 const LOAN_KEY = "expense-manager-loans";
 
@@ -274,11 +290,11 @@ export function useDebts() {
         }
 
         if (storedLoans) {
-          setLoans(JSON.parse(storedLoans));
+          setLoans(JSON.parse(storedLoans).map(migrateLoanBalances));
         } else {
           const local = localStorage.getItem(LOAN_KEY);
           if (local) {
-            setLoans(JSON.parse(local));
+            setLoans(JSON.parse(local).map(migrateLoanBalances));
             await Preferences.set({ key: LOAN_KEY, value: local });
             localStorage.removeItem(LOAN_KEY);
           }
@@ -329,8 +345,10 @@ export function useDebts() {
   const updateLoan = (id: string, u: Partial<Omit<Loan, "id">>) => setLoans((p) => p.map((l) => {
     if (l.id !== id) return l;
     const updated = { ...l, ...u };
-    if (u.principalPaid !== undefined) updated.initialPrincipalPaid = u.principalPaid;
-    if (u.interestPaid !== undefined) updated.initialInterestPaid = u.interestPaid;
+    if (!l.transactions?.length) {
+      if (u.principalPaid !== undefined) updated.initialPrincipalPaid = u.principalPaid;
+      if (u.interestPaid !== undefined) updated.initialInterestPaid = u.interestPaid;
+    }
     return normalizeLoan(updated);
   }));
   const deleteLoan = (id: string) => setLoans((p) => p.filter((l) => l.id !== id));

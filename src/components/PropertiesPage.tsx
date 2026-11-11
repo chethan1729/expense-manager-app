@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Plus, Trash2, Check, X, TrendingUp, TrendingDown, Building2, MapPin, FolderOpen, Image as ImageIcon } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
+import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 
 export function PropertiesPage(props: ReturnType<typeof useProperties>) {
   const { properties, addProperty, updateProperty, deleteProperty, totalPropertyValue, totalPurchaseValue } = props;
@@ -154,9 +155,9 @@ export function PropertiesPage(props: ReturnType<typeof useProperties>) {
       </label>
       <div className="flex gap-2 justify-between">
         {showDelete ? (
-          <Button size="sm" variant="ghost" className="text-destructive" onClick={() => { deleteProperty(showDelete); setEditingId(null); resetForm(); }}>
-            <Trash2 className="h-4 w-4 mr-1" /> Delete
-          </Button>
+          <ConfirmDeleteDialog title="Delete this property?" description="This property and its details will be permanently removed." onConfirm={() => { deleteProperty(showDelete); setEditingId(null); resetForm(); }}>
+            <Button size="sm" variant="ghost" className="text-destructive"><Trash2 className="h-4 w-4 mr-1" /> Delete</Button>
+          </ConfirmDeleteDialog>
         ) : <div />}
         <div className="flex gap-2">
           <Button size="sm" variant="ghost" onClick={onCancel}><X className="h-4 w-4 mr-1" /> Cancel</Button>

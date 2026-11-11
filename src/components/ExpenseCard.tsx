@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Trash2, Check, X, Plus, Landmark, Lock, ChevronDown, ChevronUp } from "lucide-react";
 import type { AmountSegregation } from "@/hooks/useExpenses";
 import { SourceAllocationDetails } from "./SourceAllocationDetails";
+import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 
 interface ExpenseCardProps {
   expense: Expense;
@@ -54,8 +55,10 @@ export function ExpenseCard({
   const isOverBudget = remaining < 0;
 
   // For balance tracking: current balance = totalAllocated - totalSpent
-  const currentBalance = (expense.totalAllocated || 0) - (expense.totalSpent || 0);
   const fdBalance = expense.isFD ? (expense.preExistingFD || 0) : 0;
+  let baseBalance = (expense.totalAllocated || 0) - (expense.totalSpent || 0);
+  baseBalance = Math.max(baseBalance, fdBalance);
+  const currentBalance = baseBalance + (expense.saved || 0);
   const sbBalance = currentBalance - fdBalance;
 
   const handleOpen = () => {
@@ -139,13 +142,12 @@ export function ExpenseCard({
                 <div key={seg.id} className="flex items-center gap-2 text-xs bg-muted/50 rounded-lg px-3 py-2">
                   <span className="flex-1 font-medium">{seg.sourceName}</span>
                   <span className="text-primary font-bold">₹{seg.amount.toLocaleString('en-IN')}</span>
-                  <button
+                  <ConfirmDeleteDialog title="Remove this source?" description="This source amount will be removed from the breakdown." onConfirm={() => setSegregations(p => p.filter((_, i) => i !== idx))}>
+                    <button
                     type="button"
-                    onClick={() => setSegregations(p => p.filter((_, i) => i !== idx))}
                     className="text-destructive hover:text-destructive/80"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
+                    ><Trash2 className="h-3.5 w-3.5" /></button>
+                  </ConfirmDeleteDialog>
                 </div>
               ))}
               <div className="flex gap-2">
@@ -229,9 +231,9 @@ export function ExpenseCard({
         )}
 
         <div className="flex gap-2 justify-between">
-          <Button size="sm" variant="ghost" className="text-destructive" onClick={() => { onDelete(expense.id); setEditing(false); }}>
-            <Trash2 className="h-4 w-4 mr-1" /> Delete
-          </Button>
+          <ConfirmDeleteDialog title="Delete this expense?" description="This expense and its balance details will be permanently removed." onConfirm={() => { onDelete(expense.id); setEditing(false); }}>
+            <Button size="sm" variant="ghost" className="text-destructive"><Trash2 className="h-4 w-4 mr-1" /> Delete</Button>
+          </ConfirmDeleteDialog>
           <div className="flex gap-2">
             <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>
               <X className="h-4 w-4 mr-1" /> Cancel
@@ -255,7 +257,7 @@ export function ExpenseCard({
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-2 text-sm">
+      <div className={`grid ${(!isEmergency && !isLoan && showBalanceTracking) ? 'grid-cols-2' : 'grid-cols-3'} gap-2 text-sm`}>
         <div>
           <span className="text-muted-foreground text-xs block">{isEmergency ? "Target Allot." : "Allocated"}</span>
           <span className="font-medium font-heading">₹{expense.estimated.toLocaleString('en-IN')}</span>
@@ -275,7 +277,7 @@ export function ExpenseCard({
               <span className="text-muted-foreground text-xs block">EMI</span>
               <span className="font-medium font-heading text-primary font-bold">₹{(expense.emi || 0).toLocaleString('en-IN')}</span>
             </>
-          ) : (
+          ) : showBalanceTracking ? null : (
             <>
               <span className="text-muted-foreground text-xs block">Remaining</span>
               <span className={`font-medium font-heading ${isOverBudget ? "text-destructive" : "text-primary"}`}>
@@ -342,7 +344,7 @@ export function ExpenseCard({
       {isSaving && getSourceAllocations && (
         <SourceAllocationDetails 
           allocations={getSourceAllocations("saving-fund", expense.id)} 
-          totalAmount={(expense.totalAllocated || 0) - (expense.totalSpent || 0) + (expense.saved || 0)} 
+          totalAmount={currentBalance} 
         />
       )}
 

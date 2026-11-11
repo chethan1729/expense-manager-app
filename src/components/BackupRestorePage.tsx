@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useBackupRestore } from "@/hooks/useBackupRestore";
+import { getExpenseManagerViewToken, isExpenseManagerSyncConfigured } from "@/lib/expenseManagerSupabase";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Download, Upload, ShieldCheck, AlertTriangle, Share2, History, Copy } from "lucide-react";
@@ -33,6 +34,7 @@ export function BackupRestorePage() {
   const [isImporting, setIsImporting] = useState(false);
   const [pendingBackup, setPendingBackup] = useState<BackupData | null>(null);
   const [showVerifyDialog, setShowVerifyDialog] = useState(false);
+  const [syncToken, setSyncToken] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -42,6 +44,22 @@ export function BackupRestorePage() {
     };
     fetchLastBackup();
   }, [getLastBackupTime]);
+
+  useEffect(() => {
+    if (!isExpenseManagerSyncConfigured) return;
+    getExpenseManagerViewToken().then(setSyncToken).catch((error) => {
+      console.error("Could not load website sync token:", error);
+    });
+  }, []);
+
+  const handleCopySyncToken = async () => {
+    try {
+      await navigator.clipboard.writeText(syncToken);
+      toast({ title: "Website access code copied", description: "Enter this code in the read-only Vercel dashboard." });
+    } catch {
+      toast({ title: "Copy failed", description: "Select and copy the access code manually.", variant: "destructive" });
+    }
+  };
 
   const handleExport = async () => {
     setIsExporting(true);
@@ -233,6 +251,30 @@ export function BackupRestorePage() {
           Keep your financial records safe. Export your data as a backup file that you can restore anytime.
         </p>
       </div>
+
+      <Card className="border-blue-100 dark:border-blue-900/30 shadow-sm">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base font-semibold">Read-only website access</CardTitle>
+          <CardDescription className="text-xs">
+            Use this private code to view your synced finances on the Vercel dashboard. Anyone with the code can view this financial snapshot.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {isExpenseManagerSyncConfigured ? (
+            <>
+              <div className="rounded-lg border bg-muted/30 p-3 font-mono text-xs break-all select-all">
+                {syncToken || "Preparing secure access code…"}
+              </div>
+              <Button onClick={handleCopySyncToken} disabled={!syncToken} variant="outline" className="w-full gap-2">
+                <Copy className="h-4 w-4" /> Copy website access code
+              </Button>
+              <p className="text-[10px] text-muted-foreground">Data syncs automatically when app data changes. Apply the dashboard migration in Supabase before connecting.</p>
+            </>
+          ) : (
+            <p className="text-xs text-muted-foreground">Supabase sync is not configured in this build. Configure the Supabase URL and anon key, then rebuild the app.</p>
+          )}
+        </CardContent>
+      </Card>
 
       <Card className="border-emerald-100 dark:border-emerald-900/30 overflow-hidden shadow-sm">
         <CardHeader className="bg-emerald-50/50 dark:bg-emerald-900/10 pb-4">

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 
 export type MetalType = "Gold 24K" | "Gold 22K" | "Silver" | "Platinum";
 
@@ -27,6 +27,116 @@ const DEFAULT_RATES: MetalRates = {
   lastUpdated: new Date().toISOString(),
 };
 
+const TROY_OUNCE_TO_GRAMS = 31.1035;
+const METAL_SOURCE_URL = "https://api.metals.live/v1/spot";
+const FX_SOURCE_URL = "https://api.frankfurter.app/latest?from=USD&to=INR";
+const GOLD_API_URLS = { silver: "https://api.gold-api.com/price/XAG", platinum: "https://api.gold-api.com/price/XPT" };
+const DATA_PROXIES = ["", "https://corsproxy.io/?", "https://api.allorigins.win/raw?url="];
+const READABLE_PAGE_PREFIX = "https://r.jina.ai/";
+const BENGALURU_GOLD_URL = "https://www.goodreturns.in/gold-rates/bangalore.html";
+const BENGALURU_SILVER_URL = "https://www.goodreturns.in/silver-rates/bangalore.html";
+const BENGALURU_PLATINUM_URL = "https://www.goodreturns.in/platinum-rate-in-bangalore.html";
+const BENGALURU_GOLD_22K_FALLBACK = 14505;
+const BENGALURU_SILVER_FALLBACK = 255;
+const BENGALURU_PLATINUM_FALLBACK = 5590;
+
+async function fetchRateData(url: string) {
+  for (const proxy of DATA_PROXIES) {
+    try {
+      const response = await Promise.race([
+        fetch(`${proxy}${proxy ? encodeURIComponent(url) : url}`, { cache: "no-store" }),
+        new Promise<Response>((_, reject) => setTimeout(() => reject(new Error("Rate request timed out")), 5000)),
+      ]);
+      if (response.ok) return await response.json();
+    } catch {
+      // Try the next source.
+    }
+  }
+  throw new Error("Live rate source unavailable");
+}
+
+export function parseGoodreturnsRate(markdown: string, metal: "gold22k" | "silver" | "platinum") {
+  const heading = metal === "gold22k"
+    ? "Today Gold Price Per Gram in Bangalore"
+    : metal === "silver"
+      ? "Today Silver Price Per Gram/Kg in Bangalore"
+      : "Today Platinum Price Per Gram in Bangalore";
+  const start = markdown.toLowerCase().indexOf(heading.toLowerCase());
+  const section = start >= 0 ? markdown.slice(start, start + 5000) : markdown;
+  const tableRows = section.split(/\r?\n/).filter((line) => /^\s*\|/.test(line));
+  const parseAmount = (cell: string) => {
+    const digits = cell.replace(/[^\d]/g, "");
+    return digits ? Number(digits) : 0;
+  };
+
+  if (metal === "gold22k") {
+    for (let index = 0; index < tableRows.length - 1; index += 1) {
+      const headers = tableRows[index].split("|").map((cell) => cell.trim().toLowerCase());
+      const gold22kColumn = headers.findIndex((cell) => cell === "22k" || cell.includes("22k"));
+      if (gold22kColumn < 0) continue;
+      const firstDataRow = tableRows.slice(index + 1).find((row) => {
+        const cells = row.split("|").map((cell) => cell.trim());
+        return cells[1] === "1" && cells[gold22kColumn];
+      });
+      if (firstDataRow) {
+        const cells = firstDataRow.split("|").map((cell) => cell.trim());
+        const rate = parseAmount(cells[gold22kColumn]);
+        if (rate > 0) return rate;
+      }
+    }
+    return 0;
+  }
+
+  const perGramRow = tableRows.find((row) => {
+    const cells = row.split("|").map((cell) => cell.trim());
+    return cells[1] === "1" && /₹?\s*[\d,]+/.test(cells[2] || "");
+  });
+  if (!perGramRow) return 0;
+  return parseAmount(perGramRow.split("|").map((cell) => cell.trim())[2]);
+}
+
+async function fetchGoodreturnsRate(url: string, metal: "gold22k" | "silver" | "platinum") {
+  try {
+    const response = await Promise.race([
+      fetch(`${READABLE_PAGE_PREFIX}${url}`, {
+        cache: "no-store",
+        headers: { Accept: "text/plain", "x-no-cache": "true" },
+      }),
+      new Promise<Response>((_, reject) => setTimeout(() => reject(new Error("Local metal rate request timed out")), 8000)),
+    ]);
+    if (!response.ok) return 0;
+    return parseGoodreturnsRate(await response.text(), metal);
+  } catch {
+    return 0;
+  }
+}
+
+function readSpot(data: unknown, metal: string): number | undefined {
+  if (Array.isArray(data)) {
+    const entry = data.find((item) => {
+      if (!item || typeof item !== "object") return false;
+      const value = item as Record<string, unknown>;
+      return value.metal === metal || metal in value;
+    }) as Record<string, unknown> | undefined;
+    const value = entry?.[metal];
+    if (typeof value === "number") return value;
+    if (value && typeof value === "object" && typeof (value as Record<string, unknown>).price === "number") return (value as Record<string, number>).price;
+    return typeof entry?.price === "number" ? entry.price : undefined;
+  }
+  if (!data || typeof data !== "object") return undefined;
+  const value = (data as Record<string, unknown>)[metal] || (data as Record<string, Record<string, unknown>>).rates?.[metal];
+  if (typeof value === "number") return value;
+  return value && typeof value === "object" && typeof (value as Record<string, unknown>).price === "number"
+    ? (value as Record<string, number>).price
+    : undefined;
+}
+
+function readQuotePrice(data: unknown): number | undefined {
+  if (!data || typeof data !== "object") return undefined;
+  const price = (data as Record<string, unknown>).price;
+  return typeof price === "number" ? price : undefined;
+}
+
 export const usePreciousMetals = () => {
   const [items, setItems] = useState<PreciousMetalItem[]>(() => {
     const saved = localStorage.getItem("precious-metals");
@@ -48,60 +158,47 @@ export const usePreciousMetals = () => {
     localStorage.setItem("metal-rates", JSON.stringify(rates));
   }, [rates]);
 
-  const fetchRates = async () => {
+  const fetchRates = useCallback(async () => {
     setLoading(true);
     try {
-      const TROY_OZ_TO_GRAM = 31.1035;
-      const USD_TO_INR = 92.80;
+      const [data, fx, localGold22k, localSilver, localPlatinum, silverQuote, platinumQuote] = await Promise.all([
+        fetchRateData(METAL_SOURCE_URL).catch(() => null),
+        fetchRateData(FX_SOURCE_URL).catch(() => null),
+        fetchGoodreturnsRate(BENGALURU_GOLD_URL, "gold22k"),
+        fetchGoodreturnsRate(BENGALURU_SILVER_URL, "silver"),
+        fetchGoodreturnsRate(BENGALURU_PLATINUM_URL, "platinum"),
+        fetchRateData(GOLD_API_URLS.silver).catch(() => null),
+        fetchRateData(GOLD_API_URLS.platinum).catch(() => null),
+      ]);
+      const usdToInr = Number(fx?.rates?.INR);
+      const goldSpotUSD = readSpot(data, "gold");
+      const silverSpotUSD = readSpot(data, "silver") || readQuotePrice(silverQuote);
+      const platinumSpotUSD = readSpot(data, "platinum") || readQuotePrice(platinumQuote);
 
-      const response = await fetch('https://api.metals.live/v1/spot');
-      if (!response.ok) throw new Error('API fetch failed');
-      
-      const data = await response.json();
-      let goldSpotUSD, silverSpotUSD, platinumSpotUSD;
+      const gold24k = goldSpotUSD && usdToInr ? Math.ceil((goldSpotUSD * usdToInr) / TROY_OUNCE_TO_GRAMS) : undefined;
+      const silver = localSilver > 0 ? localSilver : silverSpotUSD && usdToInr ? Math.ceil((silverSpotUSD * usdToInr) / TROY_OUNCE_TO_GRAMS) : BENGALURU_SILVER_FALLBACK;
+      const platinum = localPlatinum > 0 ? localPlatinum : platinumSpotUSD && usdToInr ? Math.ceil((platinumSpotUSD * usdToInr) / TROY_OUNCE_TO_GRAMS) : BENGALURU_PLATINUM_FALLBACK;
+      const gold22k = localGold22k > 0 ? localGold22k : BENGALURU_GOLD_22K_FALLBACK;
 
-      // Robust parsing for different API structures (Array vs Object)
-      if (Array.isArray(data)) {
-        goldSpotUSD = data.find(i => i.gold)?.gold?.price || data.find(i => i.metal === 'gold')?.price;
-        silverSpotUSD = data.find(i => i.silver)?.silver?.price || data.find(i => i.metal === 'silver')?.price;
-        platinumSpotUSD = data.find(i => i.platinum)?.platinum?.price || data.find(i => i.metal === 'platinum')?.price;
-      } else {
-        goldSpotUSD = data.gold?.price || data.rates?.XAU || data.rates?.gold;
-        silverSpotUSD = data.silver?.price || data.rates?.XAG || data.rates?.silver;
-        platinumSpotUSD = data.platinum?.price || data.rates?.XPT || data.rates?.platinum;
-      }
-
-      if (goldSpotUSD) {
-        const gold24k = Math.ceil((goldSpotUSD * USD_TO_INR) / TROY_OZ_TO_GRAM);
-        const silver = silverSpotUSD ? Math.ceil((silverSpotUSD * USD_TO_INR) / TROY_OZ_TO_GRAM) : 250;
-        const platinum = platinumSpotUSD ? Math.ceil((platinumSpotUSD * USD_TO_INR) / TROY_OZ_TO_GRAM) : 6150;
-        const gold22k = Math.ceil(gold24k * 0.916);
-
-        setRates({ gold24k, gold22k, silver, platinum, lastUpdated: new Date().toISOString() });
-      } else {
-        throw new Error('Could not parse metals data');
-      }
+      setRates((previous) => ({ gold24k: gold24k ?? previous.gold24k, gold22k, silver, platinum, lastUpdated: new Date().toISOString() }));
     } catch (error) {
       console.error("Failed to fetch metal rates:", error);
-      const fluctuation = () => (Math.random() - 0.5) * 5;
       setRates(prev => {
-        const baseGold24k = prev.gold24k > 10000 ? 7450 : prev.gold24k;
-        const baseGold22k = prev.gold22k > 9000 ? 6825 : prev.gold22k;
-        const baseSilver = prev.silver > 150 ? 85 : prev.silver;
-        const basePlatinum = prev.platinum > 4500 ? 3000 : prev.platinum;
-
         return {
-          gold24k: Math.ceil(baseGold24k + fluctuation()),
-          gold22k: Math.ceil(baseGold22k + fluctuation() * 0.916),
-          silver: Math.ceil(baseSilver + (Math.random() - 0.5) * 0.5),
-          platinum: Math.ceil(basePlatinum + fluctuation() * 0.4),
-          lastUpdated: new Date().toISOString(),
+          ...prev,
+          gold22k: BENGALURU_GOLD_22K_FALLBACK,
+          silver: BENGALURU_SILVER_FALLBACK,
+          platinum: BENGALURU_PLATINUM_FALLBACK,
         };
       });
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    void fetchRates();
+  }, [fetchRates]);
 
   const addItem = (item: Omit<PreciousMetalItem, "id">) => {
     const newItem = { ...item, id: crypto.randomUUID() };

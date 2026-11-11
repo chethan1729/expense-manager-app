@@ -156,6 +156,27 @@ describe("loan calculations", () => {
     expect(summary.totalOutstanding).toBe(100000);
   });
 
+  it("reduces interest totals when an interest transaction is removed", () => {
+    const loan: Loan = {
+      id: "loan-delete-interest",
+      name: "Delete interest",
+      sanctionedAmount: 100000,
+      totalOutstanding: 100000,
+      principalPaid: 0,
+      interestPaid: 0,
+      initialPrincipalPaid: 0,
+      initialInterestPaid: 0,
+      interestRate: 7,
+      tenureMonths: 24,
+      paidMonths: 0,
+      startDate: "2024-01-01",
+      transactions: [{ id: "interest", amount: 0, description: "Pre-EMI", date: "2024-02-01", kind: "pre-emi", interest: 1500 }],
+    };
+
+    expect(summarizeLoanMetrics(loan).interestPaid).toBe(1500);
+    expect(summarizeLoanMetrics({ ...loan, transactions: [] }).interestPaid).toBe(0);
+  });
+
   it("calculates a fixed EMI with the expected opening split", () => {
     const loan: Loan = {
       id: "loan-fixed-emi",

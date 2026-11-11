@@ -2,6 +2,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { RecordTransactionDialog } from "./RecordTransactionDialog";
 import { Trash2, Calendar } from "lucide-react";
+import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import type { Transaction, PaymentMode, PAYMENT_MODES } from "@/hooks/useTransactions";
 import type { Expense, FundSection } from "@/hooks/useExpenses";
 
@@ -146,14 +147,11 @@ export function TransactionsPage({
                         <span className="text-sm font-bold text-accent">
                           ₹{transaction.amount.toLocaleString("en-IN")}
                         </span>
-                        <button
-                          onClick={() =>
-                            onDeleteTransaction(transaction.id, monthKey)
-                          }
-                          className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                        <ConfirmDeleteDialog title="Delete this transaction?" description="This transaction will be permanently removed." onConfirm={() => onDeleteTransaction(transaction.id, monthKey)}>
+                          <button className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive" aria-label="Delete transaction">
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </ConfirmDeleteDialog>
                       </div>
                     </Card>
                   ))}

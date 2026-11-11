@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { App } from "@capacitor/app";
 import { useFundManager, BALANCE_TRACKING_FUNDS, SIMPLE_FUNDS } from "@/hooks/useExpenses";
 import { useProperties } from "@/hooks/useProperties";
@@ -29,6 +29,7 @@ import { AutomatedTransactionsPage } from "@/components/AutomatedTransactionsPag
 import { BackupRestorePage } from "@/components/BackupRestorePage";
 import { InvestmentPlannerPage } from "@/components/InvestmentPlannerPage";
 import { FinancialAssistant } from "@/components/FinancialAssistant";
+import { useSupabaseSnapshotSync } from "@/lib/expenseManagerSupabase";
 import type { FinancialContext } from "@/hooks/useChat";
 import expenseLogo from "@/assets/expense.png";
 import { Wallet, TrendingDown, TrendingUp, IndianRupee, ArrowLeft } from "lucide-react";
@@ -51,7 +52,7 @@ const Index = () => {
   const { totalFDAmount: depositsTotalFD, totalEPF, grandTotal: depositsGrandTotal } = depositsHook;
 
   const {
-    sections, activeSectionId, setActiveSectionId, activeSection, totalBudget, setTotalBudget,
+    sections, monthlyData, activeSectionId, setActiveSectionId, activeSection, totalBudget, setTotalBudget,
     updateExpense, addExpense, deleteExpense, importExpenses, updateSectionBudget,
     updateSectionPlanningDuration,
     addInvestmentItem, updateInvestmentItem, deleteInvestmentItem, getSectionTotals,
@@ -83,7 +84,7 @@ const Index = () => {
     }))
   );
 
-  const { recordSnapshot } = useNetWorthHistory();
+  const { history: netWorthHistory, recordSnapshot } = useNetWorthHistory();
 
   const monthKey = getMonthKey(new Date(currentYear, currentMonth, 1));
   const monthTransactions = getTransactionsForMonth(monthKey);
@@ -92,7 +93,38 @@ const Index = () => {
   const [mainMenuPage, setMainMenuPage] = useState<string | null>(null);
   const [debtNavigationKey, setDebtNavigationKey] = useState(0);
 
-  const isHydrated = !fundLoading && !propertiesLoading && !debtsLoading;
+  const isHydrated = !fundLoading && !propertiesLoading && !debtsLoading
+    && !depositsHook.loading && !goalsHook.loading && !transactionsHook.loading;
+
+  const syncSnapshotRevision = useMemo(() => ({
+    monthlyData,
+    transactions,
+    properties: propertiesHook.properties,
+    debts,
+    loans: debtsHook.loans,
+    deposits: depositsHook.data,
+    goals: goalsHook.goals,
+    metals: { items: metalsHook.items, rates: metalsHook.rates },
+    automatedTransactions: {
+      pending: automatedTransactionsHook.pendingTransactions,
+      processed: automatedTransactionsHook.processedTransactions,
+    },
+    netWorthHistory,
+  }), [
+    monthlyData,
+    transactions,
+    propertiesHook.properties,
+    debts,
+    debtsHook.loans,
+    depositsHook.data,
+    goalsHook.goals,
+    metalsHook.items,
+    metalsHook.rates,
+    automatedTransactionsHook.pendingTransactions,
+    automatedTransactionsHook.processedTransactions,
+    netWorthHistory,
+  ]);
+  useSupabaseSnapshotSync(syncSnapshotRevision, isHydrated);
 
   const isDashboard = activeSectionId === "dashboard";
   const isInvestment = activeSectionId === "investment-fund";
@@ -406,6 +438,7 @@ const Index = () => {
             </button>
             <ReportsPage
               dashboardData={dashboardData}
+              monthlyData={monthlyData}
               totalFD={getTotalFD() + depositsTotalFD}
               totalInvested={totalInvestedSummary}
               totalPropertyValue={totalPropertyValue}

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { Preferences } from "@capacitor/preferences";
 import { Capacitor, registerPlugin } from "@capacitor/core";
 import { useLLM } from "@/hooks/useLLM";
+import { useSupabaseSnapshotSync } from "@/lib/expenseManagerSupabase";
 
 interface SMSReaderNativePlugin {
   testConnection(): Promise<{ status: string }>;
@@ -50,6 +51,8 @@ export const useAutomatedTransactions = (funds: Fund[]) => {
   const [loading, setLoading] = useState(false);
   const [learnedMappings, setLearnedMappings] = useState<Record<string, { fundId: string; expenseId: string; paymentMode?: string }>>({});
   const { initializeModel, generate, modelLoading } = useLLM();
+
+  useSupabaseSnapshotSync({ pendingTransactions, processedTransactions, approvedHashes: [...approvedHashes], learnedMappings }, true);
 
   // Load pending transactions from storage
   useEffect(() => {

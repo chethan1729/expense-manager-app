@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Trash2, Check, X, HandCoins, Landmark, ArrowLeft, Image as ImageIcon, ChevronDown, ChevronUp, Pencil } from "lucide-react";
+import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 
 export function DebtPage(props: ReturnType<typeof useDebts>) {
   const { debts, loans, addDebt, updateDebt, deleteDebt, addLoan, updateLoan, deleteLoan, addLoanTransaction, updateLoanTransaction, deleteLoanTransaction, totalOutstanding } = props;
@@ -413,7 +414,9 @@ export function DebtPage(props: ReturnType<typeof useDebts>) {
                 <div key={d.id} className="space-y-3">
                   {debtFormFields}
                   <div className="flex gap-2 justify-between">
-                    <Button size="sm" variant="ghost" className="text-destructive" onClick={() => { deleteDebt(d.id); setEditDebtId(null); }}><Trash2 className="h-4 w-4 mr-1" /> Delete</Button>
+                    <ConfirmDeleteDialog title="Delete this debt?" description="This personal debt record will be permanently removed." onConfirm={() => { deleteDebt(d.id); setEditDebtId(null); }}>
+                      <Button size="sm" variant="ghost" className="text-destructive"><Trash2 className="h-4 w-4 mr-1" /> Delete</Button>
+                    </ConfirmDeleteDialog>
                     <div className="flex gap-2">
                       <Button size="sm" variant="ghost" onClick={() => setEditDebtId(null)}><X className="h-4 w-4 mr-1" /> Cancel</Button>
                       <Button size="sm" onClick={handleSaveDebt}><Check className="h-4 w-4 mr-1" /> Save</Button>
@@ -584,14 +587,11 @@ export function DebtPage(props: ReturnType<typeof useDebts>) {
                           >
                             <Pencil className="h-3.5 w-3.5" />
                           </Button>
-                          <Button 
-                            size="icon" 
-                            variant="ghost" 
-                            className="h-7 w-7 text-destructive hover:bg-destructive/10"
-                            onClick={() => deleteLoanTransaction(loanForTx.id, t.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          <ConfirmDeleteDialog title="Delete this transaction?" description="This payment will be removed and the loan totals recalculated." onConfirm={() => deleteLoanTransaction(loanForTx.id, t.id)}>
+                            <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:bg-destructive/10" aria-label="Delete transaction">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </ConfirmDeleteDialog>
                         </div>
                       </div>
                     ))}
@@ -643,7 +643,9 @@ export function DebtPage(props: ReturnType<typeof useDebts>) {
                     <div key={l.id} className="space-y-3">
                       {loanFormFields}
                       <div className="flex gap-2 justify-between">
-                        <Button size="sm" variant="ghost" className="text-destructive" onClick={() => { deleteLoan(l.id); setEditLoanId(null); }}><Trash2 className="h-4 w-4 mr-1" /> Delete</Button>
+                        <ConfirmDeleteDialog title="Delete this loan?" description="The loan and its transaction history will be permanently removed." onConfirm={() => { deleteLoan(l.id); setEditLoanId(null); }}>
+                          <Button size="sm" variant="ghost" className="text-destructive"><Trash2 className="h-4 w-4 mr-1" /> Delete</Button>
+                        </ConfirmDeleteDialog>
                         <div className="flex gap-2">
                           <Button size="sm" variant="ghost" onClick={() => setEditLoanId(null)}><X className="h-4 w-4 mr-1" /> Cancel</Button>
                           <Button size="sm" onClick={handleSaveLoan}><Check className="h-4 w-4 mr-1" /> Save</Button>

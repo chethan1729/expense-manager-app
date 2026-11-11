@@ -6,10 +6,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   Plus, Trash2, Check, X, Target, Calendar, TrendingUp, Wallet,
   ChevronDown, ChevronUp, AlertCircle, Image as ImageIcon,
-  LayoutGrid, List,
+  LayoutGrid, List, GripVertical,
 } from "lucide-react";
 import type { InvestmentItem, Expense } from "@/hooks/useExpenses";
 import type { FDEntry, EPFEntry, OtherSavingsEntry } from "@/hooks/useDeposits";
+import { DndContext, DragEndEvent, PointerSensor, closestCenter, useSensor, useSensors } from "@dnd-kit/core";
+import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 
 interface AvailableSource {
   sourceType: "investment-profile" | "wife-investment-profile" | "fd" | "saving-fund" | "epf" | "other-savings";
@@ -31,12 +35,22 @@ interface GoalsPageProps {
 
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
+function SortableGoalRow({ goalId, children }: { goalId: string; children: (handleProps: React.HTMLAttributes<HTMLButtonElement>) => React.ReactNode }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: goalId });
+  return (
+    <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition, zIndex: isDragging ? 10 : 1, position: "relative" }}>
+      {children({ ...attributes, ...listeners } as React.HTMLAttributes<HTMLButtonElement>)}
+    </div>
+  );
+}
+
 export function GoalsPage({ goalsHook, investmentItems, wifeInvestmentItems, fds, savingFundExpenses, epf, otherSavings }: GoalsPageProps) {
-  const { goals, addGoal, updateGoal, deleteGoal, getSourceAllocated, getGoalProgress } = goalsHook;
+  const { goals, addGoal, updateGoal, deleteGoal, reorderGoals, getSourceAllocated, getGoalProgress } = goalsHook;
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [goalViewMode, setGoalViewMode] = useState<"grid" | "list">("grid");
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { delay: 450, tolerance: 8 } }));
 
   // Form state
   const [formName, setFormName] = useState("");
@@ -115,7 +129,14 @@ export function GoalsPage({ goalsHook, investmentItems, wifeInvestmentItems, fds
       });
     });
     savingFundExpenses.forEach((exp) => {
-      const total = (exp.totalAllocated || 0) - (exp.totalSpent || 0) + (exp.saved || 0);
+      const hasLifetimeTotals = (exp.totalAllocated || 0) > 0 || (exp.totalSpent || 0) > 0;
+      const lifetimeBalance = (exp.totalAllocated || 0) - (exp.totalSpent || 0);
+      const monthlyBalance = (exp.estimated || 0) - (exp.spent || 0);
+      const fdBalance = exp.isFD ? (exp.preExistingFD || 0) : 0;
+      let baseBalance = hasLifetimeTotals ? lifetimeBalance : monthlyBalance;
+      baseBalance = Math.max(baseBalance, fdBalance);
+      
+      const total = baseBalance + (exp.saved || 0);
       const used = getSourceAllocated("saving-fund", exp.id, excludeGoalId);
       sources.push({
         sourceType: "saving-fund", sourceId: exp.id, sourceName: `Saving - ${exp.description}`,
@@ -139,6 +160,12 @@ export function GoalsPage({ goalsHook, investmentItems, wifeInvestmentItems, fds
       });
     });
     return sources;
+  };
+
+  const handleGoalDragEnd = (event: DragEndEvent) => {
+    if (event.over && event.active.id !== event.over.id) {
+      reorderGoals(String(event.active.id), String(event.over.id));
+    }
   };
 
   const subTargetTotal = formSubTargets.reduce((s, t) => s + t.amount, 0);
@@ -319,9 +346,9 @@ export function GoalsPage({ goalsHook, investmentItems, wifeInvestmentItems, fds
             <span className="text-xs">{st.name}</span>
             <div className="flex items-center gap-2">
               <span className="text-xs font-medium">₹{st.amount.toLocaleString("en-IN")}</span>
-              <button onClick={() => setFormSubTargets((prev) => prev.filter((t) => t.id !== st.id))} className="text-muted-foreground hover:text-destructive">
-                <X className="h-3 w-3" />
-              </button>
+              <ConfirmDeleteDialog title="Remove this sub-target?" description="This sub-target will be removed from the goal form." onConfirm={() => setFormSubTargets((prev) => prev.filter((t) => t.id !== st.id))}>
+                <button className="text-muted-foreground hover:text-destructive" aria-label="Remove sub-target"><X className="h-3 w-3" /></button>
+              </ConfirmDeleteDialog>
             </div>
           </div>
         ))}
@@ -347,9 +374,9 @@ export function GoalsPage({ goalsHook, investmentItems, wifeInvestmentItems, fds
             <span className="text-xs truncate pr-2">{f.sourceName}</span>
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold text-primary">₹{f.allocatedAmount.toLocaleString("en-IN")}</span>
-              <button onClick={() => setFormFunding((prev) => prev.filter((x) => x.id !== f.id))} className="text-muted-foreground hover:text-destructive">
-                <X className="h-3 w-3" />
-              </button>
+              <ConfirmDeleteDialog title="Remove this funding allocation?" description="This amount will be removed from the goal's funding plan." onConfirm={() => setFormFunding((prev) => prev.filter((x) => x.id !== f.id))}>
+                <button className="text-muted-foreground hover:text-destructive" aria-label="Remove funding allocation"><X className="h-3 w-3" /></button>
+              </ConfirmDeleteDialog>
             </div>
           </div>
         ))}
@@ -364,9 +391,9 @@ export function GoalsPage({ goalsHook, investmentItems, wifeInvestmentItems, fds
 
       <div className="flex gap-2 justify-between pt-2 border-t">
         {editingId && (
-          <Button size="sm" variant="ghost" className="text-destructive" onClick={() => handleDelete(editingId)}>
-            <Trash2 className="h-4 w-4 mr-1" /> Delete
-          </Button>
+          <ConfirmDeleteDialog title="Delete this goal?" description="This will permanently remove the goal and its funding allocations." onConfirm={() => handleDelete(editingId)}>
+            <Button size="sm" variant="ghost" className="text-destructive"><Trash2 className="h-4 w-4 mr-1" /> Delete</Button>
+          </ConfirmDeleteDialog>
         )}
         {!editingId && <div />}
         <div className="flex gap-2">
@@ -447,18 +474,28 @@ export function GoalsPage({ goalsHook, investmentItems, wifeInvestmentItems, fds
       {adding && renderGoalForm()}
 
       {goalViewMode === "list" ? (
-        goals.map((goal) => {
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleGoalDragEnd}>
+          <SortableContext items={goals.map((goal) => goal.id)} strategy={verticalListSortingStrategy}>
+        {goals.map((goal) => {
           const progress = getGoalProgress(goal);
           const isExpanded = expandedId === goal.id;
           const status = getStatusColor(progress);
 
           return (
-            <div key={goal.id} className="rounded-xl border bg-card overflow-hidden">
+            <SortableGoalRow key={goal.id} goalId={goal.id}>
+              {(handleProps) => <div className="rounded-xl border bg-card overflow-hidden">
               <button type="button" onClick={() => setExpandedId(isExpanded ? null : goal.id)} className="w-full text-left p-4 flex items-center justify-between gap-3">
+                <span {...handleProps} className="touch-none cursor-grab active:cursor-grabbing">
+                  <GripVertical className="h-4 w-4 shrink-0 text-muted-foreground" aria-label="Hold to reorder" />
+                </span>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <p className="font-heading font-semibold text-sm truncate">{goal.name}</p>
-                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full text-white ${status.bg}`}>{status.label}</span>
+                    {progress.percent >= 100 ? (
+                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full text-white ${status.bg}`}>Achieved</span>
+                    ) : (
+                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full text-white ${status.bg}`}>{Math.round(Math.min(progress.percent, 100))}%</span>
+                    )}
                   </div>
                   <p className="text-[11px] text-muted-foreground mt-1">Current balance: ₹{progress.totalFunded.toLocaleString("en-IN")}</p>
                 </div>
@@ -487,9 +524,12 @@ export function GoalsPage({ goalsHook, investmentItems, wifeInvestmentItems, fds
                   {goal.fundingSources.length > 0 && renderFundingGroups(goal)}
                 </div>
               )}
-            </div>
+            </div>}
+            </SortableGoalRow>
           );
-        })
+        })}
+          </SortableContext>
+        </DndContext>
       ) : (
         goals.map((goal) => {
           if (editingId === goal.id) return <div key={goal.id}>{renderGoalForm()}</div>;

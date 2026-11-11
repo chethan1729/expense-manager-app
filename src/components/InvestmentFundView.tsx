@@ -13,6 +13,7 @@ import type { InvestmentItem } from "@/hooks/useExpenses";
 import { AppLauncher } from "@capacitor/app-launcher";
 import { cn } from "@/lib/utils";
 import { SourceAllocationDetails } from "./SourceAllocationDetails";
+import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 
 export const BROKER_APPS = [
   { name: "Sharekhan", package: "com.sharekhan.androidsharemobile" },
@@ -621,9 +622,9 @@ export function InvestmentFundView({ budget, items, sourceType = "investment-pro
                 />
 
                 <div className="flex gap-2 justify-between pt-2 border-t">
-                  <Button size="sm" variant="ghost" className="text-destructive" onClick={() => { onDeleteItem(item.id); setEditingItemId(null); }}>
-                    <Trash2 className="h-4 w-4 mr-1" /> Delete
-                  </Button>
+                  <ConfirmDeleteDialog title="Delete this investment?" description="This investment profile and its details will be permanently removed." onConfirm={() => { onDeleteItem(item.id); setEditingItemId(null); }}>
+                    <Button size="sm" variant="ghost" className="text-destructive"><Trash2 className="h-4 w-4 mr-1" /> Delete</Button>
+                  </ConfirmDeleteDialog>
                   <div className="flex gap-2">
                     <Button size="sm" variant="ghost" onClick={() => setEditingItemId(null)}><X className="h-4 w-4 mr-1" /> Cancel</Button>
                     <Button size="sm" onClick={saveItem}><Check className="h-4 w-4 mr-1" /> Save</Button>

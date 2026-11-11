@@ -6,6 +6,7 @@ import {
   TrendingUp, Wallet, Target, HelpCircle, Download
 } from "lucide-react";
 import { DataExportDialog } from "@/components/DataExportDialog";
+import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 
 interface FinancialAssistantProps {
   financialContext: FinancialContext;
@@ -27,7 +28,6 @@ export function FinancialAssistant({ financialContext }: FinancialAssistantProps
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
 
   // Load history and pre-warm model on mount
@@ -68,7 +68,6 @@ export function FinancialAssistant({ financialContext }: FinancialAssistantProps
 
   const handleClear = () => {
     clearHistory();
-    setShowClearConfirm(false);
   };
 
   const formatTime = (timestamp: number) => {
@@ -119,21 +118,11 @@ export function FinancialAssistant({ financialContext }: FinancialAssistantProps
             <Download className="h-4 w-4" />
           </Button>
           {messages.length > 0 && (
-            showClearConfirm ? (
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10px] text-muted-foreground">Clear all?</span>
-                <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive px-2" onClick={handleClear}>
-                  Yes
-                </Button>
-                <Button size="sm" variant="ghost" className="h-7 text-xs px-2" onClick={() => setShowClearConfirm(false)}>
-                  No
-                </Button>
-              </div>
-            ) : (
-              <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-muted-foreground" onClick={() => setShowClearConfirm(true)}>
+            <ConfirmDeleteDialog title="Clear assistant history?" description="All saved Financial Assistant conversations will be permanently deleted." onConfirm={handleClear}>
+              <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-muted-foreground" aria-label="Clear assistant history">
                 <Trash2 className="h-4 w-4" />
               </Button>
-            )
+            </ConfirmDeleteDialog>
           )}
         </div>
       </div>

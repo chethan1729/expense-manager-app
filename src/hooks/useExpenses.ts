@@ -558,14 +558,15 @@ export function useFundManager() {
           const totalAlloc = e.totalAllocated || 0;
           const totalSp = e.totalSpent || 0;
           
+          const fdBalance = e.isFD ? (e.preExistingFD || 0) : 0;
           let currentBalance = totalAlloc - totalSp;
+          currentBalance = Math.max(currentBalance, fdBalance);
           
-          // Legacy support: manual injects like "saved" or "preExistingFD" count towards balance
+          // Legacy support: manual injects like "saved" count towards balance
           if (section.id === "emergency-fund" || section.id === "saving-fund") {
-            currentBalance += (e.saved || 0) + (e.isFD ? (e.preExistingFD || 0) : 0);
+            currentBalance += (e.saved || 0);
           }
 
-          const fdBalance = e.isFD ? (e.preExistingFD || 0) : 0;
           const sbBalance = currentBalance - fdBalance;
 
           return {
@@ -686,6 +687,7 @@ export function useFundManager() {
 
   return {
     sections: sectionsWithFreeFund,
+    monthlyData,
     activeSectionId,
     setActiveSectionId,
     activeSection,

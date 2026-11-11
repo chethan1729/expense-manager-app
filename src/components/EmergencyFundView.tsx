@@ -33,11 +33,13 @@ export function EmergencyFundView({
       (acc, e) => {
         const totalAlloc = e.totalAllocated || 0;
         const totalSp = e.totalSpent || 0;
+        const fdBalance = e.isFD ? (e.preExistingFD || 0) : 0;
         let balance = totalAlloc - totalSp;
-        balance += (e.saved || 0) + (e.isFD ? (e.preExistingFD || 0) : 0);
+        balance = Math.max(balance, fdBalance);
+        balance += (e.saved || 0);
 
         return {
-          saved: acc.saved + (e.saved || 0) + (e.isFD ? (e.preExistingFD || 0) : 0),
+          saved: acc.saved + (e.saved || 0),
           spent: acc.spent + totalSp,
           remaining: acc.remaining + balance,
         };
@@ -51,8 +53,8 @@ export function EmergencyFundView({
   const topExpenses = useMemo(() => {
     return [...section.expenses]
       .sort((a, b) => {
-        const valA = (a.saved || 0) + (a.isFD ? (a.preExistingFD || 0) : 0) + (a.totalAllocated || 0) - (a.totalSpent || 0);
-        const valB = (b.saved || 0) + (b.isFD ? (b.preExistingFD || 0) : 0) + (b.totalAllocated || 0) - (b.totalSpent || 0);
+        const valA = (a.saved || 0) + Math.max((a.totalAllocated || 0) - (a.totalSpent || 0), (a.isFD ? (a.preExistingFD || 0) : 0));
+        const valB = (b.saved || 0) + Math.max((b.totalAllocated || 0) - (b.totalSpent || 0), (b.isFD ? (b.preExistingFD || 0) : 0));
         return valB - valA;
       })
       .slice(0, 2);
@@ -112,7 +114,7 @@ export function EmergencyFundView({
           </h3>
           <div className="grid grid-cols-2 gap-3">
             {topExpenses.map((expense) => {
-              const available = (expense.saved || 0) + (expense.isFD ? (expense.preExistingFD || 0) : 0) + (expense.totalAllocated || 0) - (expense.totalSpent || 0);
+              const available = (expense.saved || 0) + Math.max((expense.totalAllocated || 0) - (expense.totalSpent || 0), (expense.isFD ? (expense.preExistingFD || 0) : 0));
               return (
                 <div key={expense.id} className="rounded-lg border bg-card p-3 space-y-1">
                   <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold truncate">

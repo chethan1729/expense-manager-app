@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
 import { 
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter 
@@ -202,18 +203,9 @@ export function InvestmentPlannerPage() {
             <h1 className="font-heading text-xl font-bold truncate">{activePlan.name}</h1>
             <p className="text-xs text-muted-foreground">Investment Strategy Planning</p>
           </div>
-          <Button 
-            variant="destructive" 
-            size="icon" 
-            onClick={() => {
-              if (confirm("Are you sure you want to delete this plan?")) {
-                deletePlan(activePlan.id);
-                setActivePlanId(null);
-              }
-            }}
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
+          <ConfirmDeleteDialog title="Delete this investment plan?" description="The plan and all its assets will be permanently removed." onConfirm={() => { deletePlan(activePlan.id); setActivePlanId(null); }}>
+            <Button variant="destructive" size="icon" aria-label="Delete investment plan"><Trash2 className="h-4 w-4" /></Button>
+          </ConfirmDeleteDialog>
         </div>
 
         {/* Plan Budget Card */}
@@ -329,17 +321,11 @@ export function InvestmentPlannerPage() {
                         ))}
                       </div>
                     </div>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        deleteItemFromPlan(activePlan.id, item.id);
-                      }}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <ConfirmDeleteDialog title="Delete this asset?" description="This asset will be removed from the investment plan." onConfirm={() => deleteItemFromPlan(activePlan.id, item.id)}>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={(e) => e.stopPropagation()} aria-label="Delete plan asset">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </ConfirmDeleteDialog>
                   </div>
 
                   <div className="grid grid-cols-3 gap-2 text-xs pt-2 border-t border-muted/30">

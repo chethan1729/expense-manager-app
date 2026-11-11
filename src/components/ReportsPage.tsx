@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
 interface ReportsPageProps {
+  monthlyData: Record<string, { sections: FundSection[]; totalBudget: number }>;
   dashboardData: {
     totalBudget: number;
     totalSpent: number;
@@ -143,6 +144,7 @@ function ReportCard({ title, subtitle, icon: Icon, iconColor, expanded, onToggle
 }
 
 export function ReportsPage({ 
+  monthlyData,
   dashboardData, 
   totalFD, 
   totalInvested, 
@@ -219,6 +221,19 @@ export function ReportsPage({
   }, [investmentSection]);
   
   const totalInvestmentCV = investmentData.reduce((s, d) => s + d.value, 0);
+
+  const monthlyInvestmentAllocations = useMemo(() => {
+    return Array.from({ length: 12 }, (_, month) => {
+      const monthKey = `${currentYear}-${String(month + 1).padStart(2, "0")}`;
+      const investmentSectionForMonth = monthlyData[monthKey]?.sections.find((section) => section.id === "investment-fund");
+      return {
+        month: new Date(currentYear, month, 1).toLocaleString("en-IN", { month: "short" }),
+        allocation: investmentSectionForMonth?.budget || 0,
+      };
+    });
+  }, [monthlyData, currentYear]);
+
+  const totalYearlyInvestmentAllocation = monthlyInvestmentAllocations.reduce((sum, month) => sum + month.allocation, 0);
 
   // Fund doughnut data: current balances for all funds except investment
   const fundData = useMemo(() => {
@@ -490,6 +505,29 @@ export function ReportsPage({
         ) : (
           <p className="text-center py-6 text-muted-foreground text-sm">No investment data to display.</p>
         )}
+      </ReportCard>
+
+      <ReportCard
+        title="Monthly Investment Fund Allocation"
+        subtitle={`Investment budget allocated per month in ${currentYear}`}
+        icon={Calendar}
+        iconColor="bg-blue-100 text-blue-700"
+        expanded={expanded === "monthly-investment-allocation"}
+        onToggle={() => toggle("monthly-investment-allocation")}
+        totalLabel={`Total allocated in ${currentYear}`}
+        totalValue={totalYearlyInvestmentAllocation}
+      >
+        <div className="h-64 w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={monthlyInvestmentAllocations} margin={{ top: 8, right: 12, left: 4, bottom: 4 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.1)" />
+              <XAxis dataKey="month" tick={{ fontSize: 10 }} />
+              <YAxis tick={{ fontSize: 10 }} tickFormatter={(value) => `₹${(value / 100000).toFixed(2)}L`} />
+              <Tooltip formatter={(value: number) => [`₹${value.toLocaleString("en-IN")}`, "Allocated"]} />
+              <Line type="monotone" dataKey="allocation" name="Investment allocation" stroke="#3b82f6" strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
       </ReportCard>
 
       {/* 2. Funds */}

@@ -13,9 +13,29 @@ const CATEGORIES = [
     symbols: ["^NSEI", "^NSEBANK"] 
   },
   { 
-    id: "global", 
-    name: "Global & US", 
-    symbols: ["^GSPC", "^IXIC", "NVDA", "AVGO", "TSM"] 
+    id: "asia", 
+    name: "Singapore, China & Japan", 
+    symbols: ["^STI", "^SSEC", "^N225"] 
+  },
+  { 
+    id: "uk", 
+    name: "United Kingdom", 
+    symbols: ["^FTSE"] 
+  },
+  { 
+    id: "us", 
+    name: "US Markets", 
+    symbols: ["^GSPC", "^IXIC", "^DJI"] 
+  },
+  { 
+    id: "stocks", 
+    name: "Global Stocks", 
+    symbols: ["NVDA", "ASML", "TSM", "AVGO", "GOOGL", "MSFT", "META", "AAPL"] 
+  },
+  { 
+    id: "indian-stocks", 
+    name: "Indian Stocks", 
+    symbols: ["HDFCBANK.NS", "BAJAJHFL.NS", "LT.NS", "VBL.NS", "SONACOMS.NS"] 
   },
   { 
     id: "crypto", 
@@ -32,11 +52,26 @@ const CATEGORIES = [
 const LOGOS: Record<string, string> = {
   '^NSEI': '🇮🇳',
   '^NSEBANK': '🏦',
+  '^STI': '🇸🇬',
+  '^SSEC': '🇨🇳',
+  '^N225': '🇯🇵',
+  '^FTSE': '🇬🇧',
   '^GSPC': '🇺🇸',
   '^IXIC': '🇺🇸',
+  '^DJI': '🇺🇸',
   'NVDA': '🟢',
+  'ASML': '🔷',
   'AVGO': '🔴',
   'TSM': '🔵',
+  'GOOGL': '🔵',
+  'MSFT': '🟦',
+  'META': '🔵',
+  'AAPL': '⚪',
+  'HDFCBANK.NS': '🏦',
+  'BAJAJHFL.NS': '🏠',
+  'LT.NS': '🏗️',
+  'VBL.NS': '🥤',
+  'SONACOMS.NS': '🚗',
   'BTC-USD': '🟠',
   'RENDER-USD': '🫧',
   'FET-USD': '🧠',
@@ -88,8 +123,7 @@ export function LiveIndexView({ fullPage }: LiveIndexViewProps) {
 
       {CATEGORIES.map((cat) => {
         // Filter symbols that have data
-        const availableSymbols = cat.symbols.filter(s => data[s]);
-        if (availableSymbols.length === 0) return null;
+        const availableSymbols = cat.symbols;
 
         return (
           <div key={cat.id} className="space-y-3">
@@ -98,7 +132,15 @@ export function LiveIndexView({ fullPage }: LiveIndexViewProps) {
             </h3>
             <div className="grid grid-cols-2 gap-3">
               {availableSymbols.map((symbol) => {
-                const item = data[symbol]!;
+                const item = data[symbol] || {
+                  symbol,
+                  name: symbol,
+                  price: 0,
+                  change: 0,
+                  changePercent: 0,
+                  currency: symbol.endsWith('.NS') || symbol.endsWith('_1G') ? 'INR' : 'USD',
+                  unavailable: true,
+                };
                 const isPositive = item.changePercent >= 0;
                 const isINR = item.currency === 'INR' || symbol.endsWith('_1G');
 
@@ -114,16 +156,20 @@ export function LiveIndexView({ fullPage }: LiveIndexViewProps) {
                       </p>
                     </div>
                     <div className="space-y-1">
-                      <p className="font-heading font-bold text-lg text-foreground">
-                        {isINR ? '₹' : (symbol === 'BTC-USD' || symbol.endsWith('-USD') ? '$' : '')}
-                        {item.price.toLocaleString('en-IN', {
-                          maximumFractionDigits: item.price > 1000 ? 0 : 2
-                        })}
-                      </p>
-                      <div className={`flex items-center gap-1 font-medium text-xs ${isPositive ? 'text-emerald-500' : 'text-destructive'}`}>
-                        {isPositive ? <TrendingUp className="h-2.5 w-2.5" /> : <TrendingDown className="h-2.5 w-2.5" />}
-                        <span>{Math.abs(item.changePercent).toFixed(2)}%</span>
-                      </div>
+                      {item.unavailable ? (
+                        <p className="font-heading font-semibold text-sm text-muted-foreground">Unavailable</p>
+                      ) : (
+                        <>
+                          <p className="font-heading font-bold text-lg text-foreground">
+                            {isINR ? '₹' : (symbol === 'BTC-USD' || symbol.endsWith('-USD') ? '$' : '')}
+                            {item.price.toLocaleString('en-IN', { maximumFractionDigits: item.price > 1000 ? 0 : 2 })}
+                          </p>
+                          <div className={`flex items-center gap-1 font-medium text-xs ${isPositive ? 'text-emerald-500' : 'text-destructive'}`}>
+                            {isPositive ? <TrendingUp className="h-2.5 w-2.5" /> : <TrendingDown className="h-2.5 w-2.5" />}
+                            <span>{Math.abs(item.changePercent).toFixed(2)}%</span>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
                 );

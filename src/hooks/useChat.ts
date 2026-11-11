@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import { Preferences } from "@capacitor/preferences";
 import { useLLM } from "@/hooks/useLLM";
+import { useSupabaseSnapshotSync } from "@/lib/expenseManagerSupabase";
 
 export interface ChatMessage {
   id: string;
@@ -79,6 +80,8 @@ export function useChat(financialContext: FinancialContext) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const { generate, initializeModel, modelLoading, isModelReady } = useLLM();
+
+  useSupabaseSnapshotSync(messages, true);
 
   // Load chat history
   const loadHistory = useCallback(async () => {

@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { usePreciousMetals, MetalType, PreciousMetalItem } from "@/hooks/usePreciousMetals";
 import { AddMetalDialog } from "./AddMetalDialog";
 import { Button } from "@/components/ui/button";
+import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { Card } from "@/components/ui/card";
 import { 
   TrendingUp, 
@@ -31,6 +32,12 @@ export function PreciousMetalsPage(props: ReturnType<typeof usePreciousMetals>) 
   const [editingItem, setEditingItem] = useState<PreciousMetalItem | null>(null);
   const [sortBy, setSortBy] = useState<'type' | 'value-asc' | 'value-desc'>('type');
   const [showSortMenu, setShowSortMenu] = useState(false);
+
+  useEffect(() => {
+    void fetchRates();
+    const refreshTimer = window.setInterval(() => void fetchRates(), 5 * 60 * 1000);
+    return () => window.clearInterval(refreshTimer);
+  }, [fetchRates]);
 
   const summary = getSummary();
 
@@ -99,6 +106,18 @@ export function PreciousMetalsPage(props: ReturnType<typeof usePreciousMetals>) 
         {renderSummaryCard("Gold", summary.gold.total, summary.gold.gain, "text-yellow-500")}
         {renderSummaryCard("Silver", summary.silver.total, summary.silver.gain, "text-slate-400")}
         {renderSummaryCard("Platinum", summary.platinum.total, summary.platinum.gain, "text-indigo-400")}
+      </div>
+
+      <div className="rounded-xl border bg-card p-3 space-y-2">
+        <div className="flex items-center justify-between">
+          <h3 className="text-xs font-semibold">Bengaluru live rate per gram</h3>
+          <span className="text-[10px] text-muted-foreground">Updated {new Date(rates.lastUpdated).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</span>
+        </div>
+        <div className="grid grid-cols-3 gap-2 text-center">
+          <div className="rounded-lg bg-yellow-50 dark:bg-yellow-950/20 p-2"><p className="text-[10px] text-muted-foreground">Gold 22K</p><p className="font-bold text-sm">₹{rates.gold22k.toLocaleString("en-IN")}</p></div>
+          <div className="rounded-lg bg-slate-50 dark:bg-slate-900/20 p-2"><p className="text-[10px] text-muted-foreground">Silver</p><p className="font-bold text-sm">₹{rates.silver.toLocaleString("en-IN")}</p></div>
+          <div className="rounded-lg bg-indigo-50 dark:bg-indigo-950/20 p-2"><p className="text-[10px] text-muted-foreground">Platinum</p><p className="font-bold text-sm">₹{rates.platinum.toLocaleString("en-IN")}</p></div>
+        </div>
       </div>
 
       <div className="space-y-4">
@@ -187,15 +206,15 @@ export function PreciousMetalsPage(props: ReturnType<typeof usePreciousMetals>) 
                     </p>
                   </div>
 
-                  <button 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      deleteItem(item.id);
-                    }}
-                    className="absolute -right-10 group-hover:right-0 top-0 bottom-0 bg-destructive text-destructive-foreground px-3 transition-all flex items-center justify-center"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
+                  <ConfirmDeleteDialog title="Delete this metal entry?" description="This item will be removed from your precious metals collection." onConfirm={() => deleteItem(item.id)}>
+                    <button
+                      onClick={(e) => e.stopPropagation()}
+                      className="absolute -right-10 group-hover:right-0 top-0 bottom-0 bg-destructive text-destructive-foreground px-3 transition-all flex items-center justify-center"
+                      aria-label="Delete metal entry"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </ConfirmDeleteDialog>
                 </Card>
               );
             })}

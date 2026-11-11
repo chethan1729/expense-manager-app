@@ -7,6 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Check, X, Trash2, Plus, Landmark, TrendingUp, Edit2, Lock } from "lucide-react";
 import { SourceAllocationDetails } from "./SourceAllocationDetails";
+import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 
 // Fund label colors for FD labels
 const FUND_LABEL_OPTIONS = [
@@ -320,12 +321,11 @@ export function DepositsPage(props: DepositsPageProps) {
                         >
                           <Edit2 className="h-3.5 w-3.5" />
                         </button>
-                        <button
-                          onClick={() => deleteFD(fd.id)}
-                          className="p-1.5 text-muted-foreground hover:text-destructive rounded transition-colors"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
+                        <ConfirmDeleteDialog title="Delete this fixed deposit?" description="This FD record will be permanently removed." onConfirm={() => deleteFD(fd.id)}>
+                          <button onClick={(event) => event.stopPropagation()} className="p-1.5 text-muted-foreground hover:text-destructive rounded transition-colors" aria-label="Delete fixed deposit">
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </ConfirmDeleteDialog>
                       </div>
                     </div>
 
@@ -457,9 +457,9 @@ export function DepositsPage(props: DepositsPageProps) {
                 <Label htmlFor="edit-os-lock-in" className="text-xs">Mark as Locked-in</Label>
               </div>
               <div className="flex gap-2 justify-between">
-                <Button size="sm" variant="ghost" className="text-destructive" onClick={() => { deleteOtherSavings(editingOther.id); setEditingOther(null); }}>
-                  <Trash2 className="h-4 w-4 mr-1" /> Delete
-                </Button>
+                <ConfirmDeleteDialog title="Delete this savings record?" description="This savings record will be permanently removed." onConfirm={() => { deleteOtherSavings(editingOther.id); setEditingOther(null); }}>
+                  <Button size="sm" variant="ghost" className="text-destructive"><Trash2 className="h-4 w-4 mr-1" /> Delete</Button>
+                </ConfirmDeleteDialog>
                 <div className="flex gap-2">
                   <Button size="sm" variant="ghost" onClick={() => setEditingOther(null)}><X className="h-4 w-4 mr-1" /> Cancel</Button>
                   <Button size="sm" onClick={() => { updateOtherSavings(editingOther.id, { name: editOsName, totalAmount: parseFloat(editOsAmount) || 0, isLockedIn: editOsLockedIn }); setEditingOther(null); }}>
