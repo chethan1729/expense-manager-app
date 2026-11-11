@@ -76,7 +76,7 @@ function App() {
     setError("");
     const supabase = createClient(supabaseUrl, supabaseAnonKey, {
       auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
-      global: { headers: { "x-expense-sync-token": accessCode.trim() } },
+      global: { headers: { "x-expense-view-token": accessCode.trim() } },
     });
     const { data, error: queryError } = await supabase
       .from(SNAPSHOT_TABLE)
@@ -85,7 +85,9 @@ function App() {
       .maybeSingle();
 
     if (queryError || !data?.payload) {
-      setError("Could not load a snapshot. Check the access code and ensure the app has synced to Supabase.");
+      setError(queryError
+        ? `Supabase lookup failed (${queryError.code || "unknown"}): ${queryError.message}`
+        : "No snapshot is available for this access code yet. Open the app's Backup & Restore page and tap Sync now.");
       setLoading(false);
       return;
     }

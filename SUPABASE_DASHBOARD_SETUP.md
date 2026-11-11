@@ -4,7 +4,7 @@ The viewer is in `web-dashboard/` and is a separate Vite project that can be dep
 
 ## Supabase setup
 
-1. In the existing `snehasagara` Supabase project, run `supabase/migrations/20261109000100_expense_manager_snapshots.sql` in the SQL editor. This creates only `public.expense_manager_snapshots`; it does not alter existing tables.
+1. In the existing `snehasagara` Supabase project, run the current contents of `supabase/migrations/20261109000100_expense_manager_snapshots.sql` in the SQL editor. This creates only `public.expense_manager_snapshots`; if the earlier one-token version already exists, it adds the viewer-token column and updates its key/policies in place. It does not alter existing tables.
 2. The Android app uses `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`. In this workspace, its Vite config reads those values from the existing `snehasagara/.env` when app-local variables are absent. For a different build machine, set them in the repository root `.env.local` using `.env.example` as the template.
 3. The app creates two random codes: a private write token kept on the device, and a separate read-only website access code. Snapshots sync after data changes. Open Home > Backup & Restore and copy the website access code.
 

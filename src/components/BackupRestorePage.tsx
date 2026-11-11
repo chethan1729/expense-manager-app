@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useBackupRestore } from "@/hooks/useBackupRestore";
-import { getExpenseManagerViewToken, isExpenseManagerSyncConfigured } from "@/lib/expenseManagerSupabase";
+import { getExpenseManagerViewToken, isExpenseManagerSyncConfigured, syncExpenseManagerSnapshot } from "@/lib/expenseManagerSupabase";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Download, Upload, ShieldCheck, AlertTriangle, Share2, History, Copy } from "lucide-react";
@@ -35,6 +35,7 @@ export function BackupRestorePage() {
   const [pendingBackup, setPendingBackup] = useState<BackupData | null>(null);
   const [showVerifyDialog, setShowVerifyDialog] = useState(false);
   const [syncToken, setSyncToken] = useState("");
+  const [isSyncingWebsiteSnapshot, setIsSyncingWebsiteSnapshot] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -58,6 +59,19 @@ export function BackupRestorePage() {
       toast({ title: "Website access code copied", description: "Enter this code in the read-only Vercel dashboard." });
     } catch {
       toast({ title: "Copy failed", description: "Select and copy the access code manually.", variant: "destructive" });
+    }
+  };
+
+  const handleSyncWebsiteSnapshot = async () => {
+    setIsSyncingWebsiteSnapshot(true);
+    try {
+      await syncExpenseManagerSnapshot();
+      toast({ title: "Website snapshot synced", description: "Refresh the Vercel dashboard to see the latest data." });
+    } catch (error) {
+      console.error("Website snapshot sync failed:", error);
+      toast({ title: "Sync failed", description: "Check Supabase setup and apply the latest snapshot migration.", variant: "destructive" });
+    } finally {
+      setIsSyncingWebsiteSnapshot(false);
     }
   };
 
@@ -268,7 +282,11 @@ export function BackupRestorePage() {
               <Button onClick={handleCopySyncToken} disabled={!syncToken} variant="outline" className="w-full gap-2">
                 <Copy className="h-4 w-4" /> Copy website access code
               </Button>
-              <p className="text-[10px] text-muted-foreground">Data syncs automatically when app data changes. Apply the dashboard migration in Supabase before connecting.</p>
+              <Button onClick={handleSyncWebsiteSnapshot} disabled={isSyncingWebsiteSnapshot} className="w-full gap-2">
+                {isSyncingWebsiteSnapshot ? <div className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full" /> : <Share2 className="h-4 w-4" />}
+                {isSyncingWebsiteSnapshot ? "Syncing…" : "Sync now"}
+              </Button>
+              <p className="text-[10px] text-muted-foreground">Data syncs automatically when app data changes. Use Sync now to publish the current snapshot immediately.</p>
             </>
           ) : (
             <p className="text-xs text-muted-foreground">Supabase sync is not configured in this build. Configure the Supabase URL and anon key, then rebuild the app.</p>
