@@ -310,7 +310,9 @@ const Index = () => {
 
       const floatingAmount = Math.max(0, totalBudget - dashboardData.totalSpent - fullTotalFD);
 
-      const currentNetWorth = totalPropertyValue + totalInvestedSummary + metalsTotalValue + fullTotalFD + totalEPF + cumulativeTrackingBalance + monthlyRemaining + floatingAmount - totalPersonalOwe;
+      // Clamp metals to prevent scraping errors from blowing up net worth
+      const clampedMetals = Math.min(metalsTotalValue, 5_000_000); // max 50L for metals sanity
+      const currentNetWorth = totalPropertyValue + totalInvestedSummary + clampedMetals + fullTotalFD + totalEPF + cumulativeTrackingBalance + monthlyRemaining + floatingAmount - totalPersonalOwe;
       const currentNetWorthWithLoans = currentNetWorth - totalOutstanding;
 
       recordSnapshot(Math.ceil(currentNetWorth), Math.ceil(currentNetWorthWithLoans));

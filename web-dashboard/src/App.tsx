@@ -3,8 +3,8 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import {
   Activity, ArrowDownRight, ArrowLeft, ArrowUpRight, Building2, Calendar, CalendarDays,
   Check, ChevronDown, ChevronLeft, ChevronRight, CircleDollarSign,
-  Eye, FolderOpen, HandCoins, Landmark, Layers,
-  Lock, LockKeyhole, LogOut, MapPin, PieChart as PieIcon, RefreshCw,
+  Eye, FolderOpen, HandCoins, Landmark, Layers, LayoutGrid, List,
+  Lock, LockKeyhole, LogOut, MapPin, PiggyBank, PieChart as PieIcon, RefreshCw,
   ShieldCheck, Target, TrendingDown, TrendingUp, Wallet, X, AlertCircle,
 } from "lucide-react";
 import {
@@ -21,11 +21,12 @@ type Snapshot = {
 type Section = { id: string; name: string; budget?: number; expenses?: AnyRecord[]; investmentItems?: AnyRecord[] };
 type Transaction = { id: string; date: string; fundId: string; amount: number; description?: string; paymentMode?: string };
 
-type View = "Overview" | "Spending" | "Investments" | "Goals" | "Debts" | "Properties" | "Availability" | "Assets";
+type View = "Overview" | "Spending" | "Investments" | "Goals" | "Debts" | "Properties" | "Availability" | "Savings" | "Assets";
 const NAVIGATION: { name: View; icon: typeof Activity; label: string }[] = [
   { name: "Overview", icon: Activity, label: "Overview" },
   { name: "Spending", icon: Wallet, label: "Spending" },
   { name: "Investments", icon: TrendingUp, label: "Investments" },
+  { name: "Savings", icon: PiggyBank, label: "Savings (FD/PF)" },
   { name: "Goals", icon: Target, label: "Goals" },
   { name: "Debts", icon: Landmark, label: "Debts & Loans" },
   { name: "Properties", icon: Building2, label: "Properties" },
@@ -184,7 +185,19 @@ function FinanceDashboard({ snapshot, selectedMonth, onMonthChange, view, onView
   const investmentPlans = getData<AnyRecord[]>(preferences, "investment-diversification-plans", localStore);
   const metalItems = getData<AnyRecord[]>(preferences, "precious-metals", localStore, "precious-metals");
   const metalRates = getData<AnyRecord>(preferences, "metal-rates", localStore, "metal-rates");
-  const netWorthHistory = getData<AnyRecord[]>(preferences, "net-worth-history", localStore, "net-worth-history");
+  const netWorthHistoryRaw = getData<AnyRecord[]>(preferences, "net-worth-history", localStore, "net-worth-history");
+  // Sanitize net worth history — clamp any spike above 2cr to the last good baseline
+  const netWorthHistory = useMemo(() => {
+    const SPIKE = 20_000_000;
+    const normal = netWorthHistoryRaw.filter((s) => Number(s.netWorth) <= SPIKE);
+    if (normal.length === 0) return netWorthHistoryRaw;
+    const baseline = normal[normal.length - 1];
+    return netWorthHistoryRaw.map((s) =>
+      Number(s.netWorth) > SPIKE
+        ? { ...s, netWorth: baseline.netWorth, netWorthWithLoans: baseline.netWorthWithLoans }
+        : s
+    );
+  }, [netWorthHistoryRaw]);
 
   const monthRecord = monthlyData[selectedMonth];
   const sections: Section[] = monthRecord?.sections || [];
@@ -356,11 +369,12 @@ function FinanceDashboard({ snapshot, selectedMonth, onMonthChange, view, onView
 
         {view === "Overview" && <OverviewView summary={monthlySummary} categorySpend={categorySpend} spendingTrend={spendingTrend} transactions={latestTransactions} currentAssets={currentAssets} totalDebt={debtTotals} netWorthHistory={netWorthHistory} onNavigate={onViewChange} />}
         {view === "Spending" && <SpendingView categorySpend={categorySpend} transactionsByMonth={transactionsByMonth} currentMonthKey={selectedMonth} summary={monthlySummary} />}
-        {view === "Investments" && <InvestmentsView investments={investments} yearData={investmentYearData} plans={investmentPlans} />}
-        {view === "Goals" && <GoalsView goals={fundedGoals} />}
+        {view === "Investments" && <InvestmentsView investments={investments} yearData={investmentYearData} plans={investmentPlans} goals={fundedGoals} />}
+        {view === "Goals" && <GoalsView goals={fundedGoals} investments={investments} />}
         {view === "Debts" && <DebtsView debts={debts} loans={loans} />}
         {view === "Properties" && <PropertiesView properties={properties} />}
         {view === "Availability" && <AvailabilityView totalSB={totalSBBalance} totalFD={totalFD} totalEPF={totalEPF} totalInvested={totalInvested} totalLockedIn={totalLockedIn} sections={sections} />}
+        {view === "Savings" && <SavingsView deposits={deposits} />}
         {view === "Assets" && <AssetsView properties={properties} deposits={deposits} metals={metalItems} metalRates={metalRates} debts={debts} loans={loans} totalInvested={totalInvested} />}
         <footer className="dashboard-footer"><ShieldCheck size={14} /> This is a read-only view. Make changes in the Expense Manager app.</footer>
       </main>
@@ -403,8 +417,8 @@ function OverviewView({ summary, categorySpend, spendingTrend, transactions, cur
         </Panel>
         <Panel title="Where it went" subtitle="Selected month by fund">
           {categorySpend.length ? <div className="donut-layout">
-            <div className="donut-chart"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={categorySpend} dataKey="amount" nameKey="name" innerRadius={56} outerRadius={82} paddingAngle={3} stroke="none">{categorySpend.map((item, index) => <Cell key={item.name} fill={CHART_COLORS[index % CHART_COLORS.length]} />)}</Pie><Tooltip formatter={(value: number) => currency(value)} /></PieChart></ResponsiveContainer></div>
-            <div className="legend-list">{categorySpend.slice(0, 6).map((item, index) => <div className="legend-row" key={item.name}><i style={{ background: CHART_COLORS[index % CHART_COLORS.length] }} /><span>{item.name}</span><b>{currency(item.amount)}</b></div>)}</div>
+            <div className="donut-chart"><ResponsiveContainer width="100%" height="100%"><PieChart margin={{ top: 8, right: 8, bottom: 8, left: 8 }}><Pie data={categorySpend} dataKey="amount" nameKey="name" innerRadius={48} outerRadius={70} paddingAngle={3} stroke="none">{categorySpend.map((item, index) => <Cell key={item.name} fill={CHART_COLORS[index % CHART_COLORS.length]} />)}</Pie><Tooltip formatter={(value: number) => currency(value)} /></PieChart></ResponsiveContainer></div>
+            <div className="legend-list">{categorySpend.slice(0, 7).map((item, index) => <div className="legend-row" key={item.name}><i style={{ background: CHART_COLORS[index % CHART_COLORS.length] }} /><span>{item.name}</span><b>{currency(item.amount)}</b></div>)}</div>
           </div> : <EmptyState message="No fund allocations recorded for this month." />}
         </Panel>
       </div>
@@ -550,7 +564,7 @@ function SpendingView({ categorySpend, transactionsByMonth, currentMonthKey, sum
                   title={`${dateStr}: ${amount > 0 ? currency(amount) : "No spend"} (Click to filter)`}
                 >
                   <span className="cal-date-num">{dayNum}</span>
-                  {amount > 0 && <span className="cal-date-amt">₹{Math.ceil(amount).toLocaleString("en-IN")}</span>}
+                  {amount > 0 && <span className="cal-date-amt">₹{amount >= 100000 ? `${(amount/100000).toFixed(1)}L` : amount >= 1000 ? `${(amount/1000).toFixed(1)}k` : Math.ceil(amount).toLocaleString("en-IN")}</span>}
                 </div>
               );
             })}
@@ -592,10 +606,15 @@ function SpendingView({ categorySpend, transactionsByMonth, currentMonthKey, sum
 // -------------------------------------------------------------
 // 2 & 7. INVESTMENTS VIEW WITH LOGOS & CURRENT VALUE DOUGHNUT GRAPH
 // -------------------------------------------------------------
-function InvestmentsView({ investments, yearData, plans }: { investments: AnyRecord[]; yearData: { month: string; allocated: number }[]; plans: AnyRecord[] }) {
+function InvestmentsView({ investments, yearData, plans, goals }: { investments: AnyRecord[]; yearData: { month: string; allocated: number }[]; plans: AnyRecord[]; goals: AnyRecord[] }) {
   const invested = investments.reduce((sum, item) => sum + item.invested, 0);
   const current = investments.reduce((sum, item) => sum + item.currentValue, 0);
   const profitLoss = current - invested;
+
+  // View toggle: "all" | "split"
+  const [profileView, setProfileView] = useState<"all" | "split">("all");
+  // Modal state for investment → goals
+  const [invModalItem, setInvModalItem] = useState<AnyRecord | null>(null);
 
   // Doughnut data based on current value
   const doughnutData = useMemo(() => {
@@ -606,9 +625,61 @@ function InvestmentsView({ investments, yearData, plans }: { investments: AnyRec
         value: Number(item.currentValue || 0),
         invested: Number(item.invested || 0),
         logo: item.logo,
+        type: item.type,
       }))
       .sort((a, b) => b.value - a.value);
   }, [investments]);
+
+  // Custom tooltip for portfolio doughnut
+  const CustomDonutTooltip = ({ active, payload }: AnyRecord) => {
+    if (!active || !payload?.length) return null;
+    const item = payload[0].payload as AnyRecord;
+    const pct = current > 0 ? ((item.value / current) * 100).toFixed(1) : "0";
+    const typeColor = item.type === "Crypto" ? "#f59e0b" : item.type?.includes("US") ? "#3b82f6" : "#10b981";
+    return (
+      <div style={{ background: "#fff", border: "1px solid #e0e8e3", borderRadius: 10, padding: "10px 13px", boxShadow: "0 4px 16px #0001", zIndex: 100, minWidth: 180, position: "relative" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 7 }}>
+          {item.logo ? (
+            <img src={item.logo} alt={item.name} style={{ width: 20, height: 20, borderRadius: 5, border: "1px solid #e0e7e2", objectFit: "cover" }} />
+          ) : (
+            <span style={{ width: 20, height: 20, borderRadius: 5, background: "#eaf2ed", color: "#23866d", fontSize: 8, fontWeight: 800, display: "grid", placeItems: "center" }}>{String(item.name).slice(0, 2).toUpperCase()}</span>
+          )}
+          <span style={{ fontSize: 11, fontWeight: 700, color: "#1e382f" }}>{item.name}</span>
+          <span style={{ fontSize: 9, fontWeight: 700, color: "#fff", background: typeColor, padding: "1px 6px", borderRadius: 4 }}>{item.type || "Other"}</span>
+        </div>
+        <div style={{ fontSize: 13, fontWeight: 800, color: "#1f382e" }}>{currency(item.value)}</div>
+        <div style={{ fontSize: 10, color: "#87948d" }}>{pct}% of portfolio</div>
+      </div>
+    );
+  };
+
+  // Bifurcated groups
+  const groups = useMemo(() => {
+    const indian = investments.filter((i) => !i.name?.includes("US") && i.type !== "Crypto" && i.type !== "US Equity");
+    const us = investments.filter((i) => i.name?.includes("US") || i.type === "US Equity");
+    const crypto = investments.filter((i) => i.type === "Crypto");
+    const bucket = (items: AnyRecord[], label: string, color: string) => {
+      const inv = items.reduce((s, i) => s + i.invested, 0);
+      const cur = items.reduce((s, i) => s + i.currentValue, 0);
+      const pl = cur - inv;
+      const plPct = inv > 0 ? (pl / inv) * 100 : 0;
+      return { label, color, items, inv, cur, pl, plPct };
+    };
+    return [
+      bucket(indian, "Indian Equities & MF", "#23866d"),
+      bucket(us, "US / Global Stocks", "#3b82f6"),
+      bucket(crypto, "Crypto & Other", "#f59e0b"),
+    ].filter((g) => g.items.length > 0);
+  }, [investments]);
+
+  // Goals linked to this investment
+  const getLinkedGoals = (invName: string) => {
+    return goals.filter((g) =>
+      (g.fundingSources || []).some((fs: AnyRecord) =>
+        fs.sourceName === invName || fs.name === invName || fs.sourceId === invName
+      )
+    );
+  };
 
   return (
     <div className="view-stack">
@@ -638,10 +709,10 @@ function InvestmentsView({ investments, yearData, plans }: { investments: AnyRec
                       <Cell key={item.name} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip formatter={(value: number) => [currency(value), "Current Value"]} />
+                  <Tooltip content={<CustomDonutTooltip />} />
                 </PieChart>
               </ResponsiveContainer>
-              <div className="donut-center-info">
+              <div className="donut-center-info" style={{ background: "rgba(255,255,255,0.92)", borderRadius: 12, padding: "6px 10px" }}>
                 <small>Total Value</small>
                 <strong>{currency(current)}</strong>
               </div>
@@ -673,56 +744,127 @@ function InvestmentsView({ investments, yearData, plans }: { investments: AnyRec
         </Panel>
       )}
 
-      {/* Investment Profiles with Logos */}
-      <Panel title="Investment profiles" subtitle={`${investments.length} profiles configured in app`}>
-        <div className="investment-cards-grid">
-          {investments.map((item) => {
-            const isProfit = item.pl >= 0;
-            const pct = item.invested > 0 ? (item.pl / item.invested) * 100 : 0;
-            return (
-              <div key={item.name} className="investment-profile-card">
-                <div className="profile-card-top">
-                  <div className="profile-avatar-wrap">
-                    {item.logo ? (
-                      <img src={item.logo} alt={item.name} className="profile-logo-img" />
-                    ) : (
-                      <div className="profile-logo-placeholder">{item.name.slice(0, 2).toUpperCase()}</div>
+      {/* Investment Profiles with Logos + Eye modal + View toggle */}
+      <Panel
+        title="Investment profiles"
+        subtitle={`${investments.length} profiles configured in app`}
+        action={
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <button
+              className={`view-toggle-btn ${profileView === "all" ? "active" : ""}`}
+              onClick={() => setProfileView("all")}
+              title="Standard view"
+            ><LayoutGrid size={14} /></button>
+            <button
+              className={`view-toggle-btn ${profileView === "split" ? "active" : ""}`}
+              onClick={() => setProfileView("split")}
+              title="Bifurcated view"
+            ><List size={14} /></button>
+          </div>
+        }
+      >
+        {profileView === "all" ? (
+          <div className="investment-cards-grid">
+            {investments.map((item) => {
+              const isProfit = item.pl >= 0;
+              const pct = item.invested > 0 ? (item.pl / item.invested) * 100 : 0;
+              return (
+                <div key={item.name} className="investment-profile-card" style={{ position: "relative" }}>
+                  <button
+                    className="card-eye-btn"
+                    title="See linked goals"
+                    onClick={() => setInvModalItem(item)}
+                  ><Eye size={14} /></button>
+                  <div className="profile-card-top">
+                    <div className="profile-avatar-wrap">
+                      {item.logo ? (
+                        <img src={item.logo} alt={item.name} className="profile-logo-img" />
+                      ) : (
+                        <div className="profile-logo-placeholder">{item.name.slice(0, 2).toUpperCase()}</div>
+                      )}
+                    </div>
+                    <div className="profile-card-title">
+                      <h3>{item.name}</h3>
+                      <div className="profile-tags">
+                        <span className="type-tag">{item.type}</span>
+                        {item.label && <span className="custom-label-tag">{item.label}</span>}
+                      </div>
+                    </div>
+                    {item.lockedInAmount > 0 && (
+                      <span className="lock-pill" title="Locked-in capital">
+                        <Lock size={10} /> {currency(item.lockedInAmount)}
+                      </span>
                     )}
                   </div>
-                  <div className="profile-card-title">
-                    <h3>{item.name}</h3>
-                    <div className="profile-tags">
-                      <span className="type-tag">{item.type}</span>
-                      {item.label && <span className="custom-label-tag">{item.label}</span>}
+
+                  <div className="profile-metrics-row">
+                    <div>
+                      <span className="sub-label">Invested</span>
+                      <strong className="sub-val">{currency(item.invested)}</strong>
+                    </div>
+                    <div>
+                      <span className="sub-label">Current</span>
+                      <strong className="sub-val">{currency(item.currentValue)}</strong>
+                    </div>
+                    <div className="text-right">
+                      <span className="sub-label">Gain / Loss</span>
+                      <strong className={`sub-val ${isProfit ? "text-emerald" : "text-rose"}`}>
+                        {isProfit ? "+" : ""}{currency(item.pl)} <small>({pct.toFixed(1)}%)</small>
+                      </strong>
                     </div>
                   </div>
-                  {item.lockedInAmount > 0 && (
-                    <span className="lock-pill" title="Locked-in capital">
-                      <Lock size={10} /> {currency(item.lockedInAmount)}
-                    </span>
-                  )}
                 </div>
-
-                <div className="profile-metrics-row">
-                  <div>
-                    <span className="sub-label">Invested</span>
-                    <strong className="sub-val">{currency(item.invested)}</strong>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="split-view-wrap">
+            {groups.map((group) => {
+              const isGroupProfit = group.pl >= 0;
+              return (
+                <div key={group.label} className="split-group">
+                  <div className="split-group-header" style={{ borderLeftColor: group.color }}>
+                    <div>
+                      <span className="split-group-label">{group.label}</span>
+                      <span className="split-group-stats">
+                        Invested {currency(group.inv)} · Current {currency(group.cur)}
+                        {" · "}<span className={isGroupProfit ? "text-emerald" : "text-rose"}>
+                          {isGroupProfit ? "+" : ""}{currency(group.pl)} ({group.plPct.toFixed(1)}%)
+                        </span>
+                      </span>
+                    </div>
+                    <strong className="split-group-total">{currency(group.cur)}</strong>
                   </div>
-                  <div>
-                    <span className="sub-label">Current</span>
-                    <strong className="sub-val">{currency(item.currentValue)}</strong>
-                  </div>
-                  <div className="text-right">
-                    <span className="sub-label">Gain / Loss</span>
-                    <strong className={`sub-val ${isProfit ? "text-emerald" : "text-rose"}`}>
-                      {isProfit ? "+" : ""}{currency(item.pl)} <small>({pct.toFixed(1)}%)</small>
-                    </strong>
+                  <div className="investment-cards-grid split-cards">
+                    {group.items.map((item) => {
+                      const isProfit = item.pl >= 0;
+                      const pct = item.invested > 0 ? (item.pl / item.invested) * 100 : 0;
+                      return (
+                        <div key={item.name} className="investment-profile-card" style={{ position: "relative" }}>
+                          <button className="card-eye-btn" title="See linked goals" onClick={() => setInvModalItem(item)}><Eye size={14} /></button>
+                          <div className="profile-card-top">
+                            <div className="profile-avatar-wrap">
+                              {item.logo ? <img src={item.logo} alt={item.name} className="profile-logo-img" /> : <div className="profile-logo-placeholder">{item.name.slice(0, 2).toUpperCase()}</div>}
+                            </div>
+                            <div className="profile-card-title">
+                              <h3>{item.name}</h3>
+                              <div className="profile-tags"><span className="type-tag">{item.type}</span>{item.label && <span className="custom-label-tag">{item.label}</span>}</div>
+                            </div>
+                          </div>
+                          <div className="profile-metrics-row">
+                            <div><span className="sub-label">Invested</span><strong className="sub-val">{currency(item.invested)}</strong></div>
+                            <div><span className="sub-label">Current</span><strong className="sub-val">{currency(item.currentValue)}</strong></div>
+                            <div className="text-right"><span className="sub-label">G/L</span><strong className={`sub-val ${isProfit ? "text-emerald" : "text-rose"}`}>{isProfit ? "+" : ""}{currency(item.pl)} <small>({pct.toFixed(1)}%)</small></strong></div>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
         {!investments.length && <EmptyState message="No investment profiles recorded for this month." />}
       </Panel>
 
@@ -767,6 +909,62 @@ function InvestmentsView({ investments, yearData, plans }: { investments: AnyRec
         </div>
         {!plans.length && <EmptyState message="No diversification plans saved." />}
       </Panel>
+
+      {/* Investment → Goals Modal */}
+      {invModalItem && (
+        <div className="modal-backdrop" onClick={() => setInvModalItem(null)}>
+          <div className="modal-sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                {invModalItem.logo ? (
+                  <img src={invModalItem.logo} alt={invModalItem.name} style={{ width: 36, height: 36, borderRadius: 10, border: "1px solid #e0e7e2", objectFit: "cover" }} />
+                ) : (
+                  <div style={{ width: 36, height: 36, borderRadius: 10, background: "#e7f3ec", color: "#23866d", fontWeight: 800, display: "grid", placeItems: "center", fontSize: 13 }}>{String(invModalItem.name).slice(0, 2).toUpperCase()}</div>
+                )}
+                <div>
+                  <h3 style={{ margin: 0, fontSize: 15, color: "#1e382f" }}>{invModalItem.name}</h3>
+                  <small style={{ color: "#87948d" }}>Goal allocations from this investment</small>
+                </div>
+              </div>
+              <button className="modal-close-btn" onClick={() => setInvModalItem(null)}><X size={18} /></button>
+            </div>
+            <div className="modal-body">
+              {(() => {
+                const linked = getLinkedGoals(invModalItem.name);
+                if (!linked.length) return <EmptyState message="No goals are funded from this investment yet." />;
+                return (
+                  <div className="modal-goals-grid">
+                    {linked.map((goal) => {
+                      const fs = (goal.fundingSources || []).find((f: AnyRecord) => f.sourceName === invModalItem.name || f.name === invModalItem.name);
+                      return (
+                        <div key={goal.id} className="modal-goal-card">
+                          {goal.image ? (
+                            <div className="modal-goal-img-wrap">
+                              <img src={goal.image} alt={goal.name} className="modal-goal-img" />
+                              <div className="modal-goal-img-overlay" />
+                              <span className="modal-goal-name-on-img">{goal.name}</span>
+                            </div>
+                          ) : (
+                            <div className="modal-goal-plain-header">
+                              <Target size={18} style={{ color: "#23866d" }} />
+                              <span>{goal.name}</span>
+                            </div>
+                          )}
+                          {fs && <div className="modal-goal-alloc">Allocated: <b>{currency(fs.allocatedAmount || 0)}</b></div>}
+                          <div className="modal-goal-progress-wrap">
+                            <div className="modal-goal-progress-bar" style={{ width: `${Math.min(100, goal.progress || 0)}%`, background: (goal.progress || 0) >= 60 ? "#10b981" : (goal.progress || 0) >= 30 ? "#f59e0b" : "#f97316" }} />
+                          </div>
+                          <small style={{ color: "#87948d", fontSize: 9 }}>{Math.round(goal.progress || 0)}% funded</small>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -774,7 +972,9 @@ function InvestmentsView({ investments, yearData, plans }: { investments: AnyRec
 // -------------------------------------------------------------
 // 4. GOALS VIEW WITH PHOTOS, ALIGNED CARDS & COLOR-CODED PROGRESS
 // -------------------------------------------------------------
-function GoalsView({ goals }: { goals: AnyRecord[] }) {
+function GoalsView({ goals, investments }: { goals: AnyRecord[]; investments: AnyRecord[] }) {
+  const [goalModalItem, setGoalModalItem] = useState<AnyRecord | null>(null);
+
   const getGoalStatus = (goal: AnyRecord) => {
     if (goal.progress >= 100) return { label: "Achieved", hex: "#10b981", tagClass: "status-achieved" };
     if (goal.monthsLeft <= 0) return { label: "Overdue", hex: "#ef4444", tagClass: "status-overdue" };
@@ -785,6 +985,15 @@ function GoalsView({ goals }: { goals: AnyRecord[] }) {
 
   const totalTarget = goals.reduce((sum, g) => sum + Number(g.target || 0), 0);
   const totalFunded = goals.reduce((sum, g) => sum + Number(g.funded || 0), 0);
+
+  // Get investments that fund this goal
+  const getGoalInvestments = (goal: AnyRecord): AnyRecord[] => {
+    const sources: AnyRecord[] = goal.fundingSources || [];
+    return sources.map((fs: AnyRecord): AnyRecord => {
+      const inv = investments.find((i: AnyRecord) => i.name === fs.sourceName || i.name === fs.name);
+      return { ...fs, logo: inv?.logo || "", type: inv?.type || "" } as AnyRecord;
+    }).filter((fs: AnyRecord) => Number(fs.allocatedAmount || 0) > 0);
+  };
 
   return (
     <div className="view-stack">
@@ -802,7 +1011,8 @@ function GoalsView({ goals }: { goals: AnyRecord[] }) {
             const clampedProgress = Math.min(100, Math.max(0, goal.progress));
 
             return (
-              <article className="goal-card" key={goal.id}>
+              <article className="goal-card" key={goal.id} style={{ position: "relative" }}>
+                <button className="card-eye-btn" title="See funding sources" onClick={() => setGoalModalItem(goal)}><Eye size={14} /></button>
                 {goal.image ? (
                   <div className="goal-card-header-img">
                     <img src={goal.image} alt={goal.name} />
@@ -880,6 +1090,54 @@ function GoalsView({ goals }: { goals: AnyRecord[] }) {
         </div>
         {!goals.length && <EmptyState message="No goals recorded in this snapshot." />}
       </Panel>
+
+      {/* Goal → Investments Modal */}
+      {goalModalItem && (
+        <div className="modal-backdrop" onClick={() => setGoalModalItem(null)}>
+          <div className="modal-sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                {goalModalItem.image ? (
+                  <img src={goalModalItem.image} alt={goalModalItem.name} style={{ width: 40, height: 40, borderRadius: 10, objectFit: "cover", border: "1px solid #e0e7e2" }} />
+                ) : (
+                  <div style={{ width: 40, height: 40, borderRadius: 10, background: "#e7f3ec", color: "#23866d", display: "grid", placeItems: "center" }}><Target size={18} /></div>
+                )}
+                <div>
+                  <h3 style={{ margin: 0, fontSize: 15, color: "#1e382f" }}>{goalModalItem.name}</h3>
+                  <small style={{ color: "#87948d" }}>Funded by these investments</small>
+                </div>
+              </div>
+              <button className="modal-close-btn" onClick={() => setGoalModalItem(null)}><X size={18} /></button>
+            </div>
+            <div className="modal-body">
+              {(() => {
+                const sources = getGoalInvestments(goalModalItem);
+                if (!sources.length) return <EmptyState message="No investment funding sources linked to this goal yet." />;
+                return (
+                  <div className="modal-inv-list">
+                    {sources.map((fs, i) => (
+                      <div key={i} className="modal-inv-row">
+                        <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+                          {fs.logo ? (
+                            <img src={fs.logo} alt={fs.sourceName || fs.name} style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid #e0e7e2", objectFit: "cover" }} />
+                          ) : (
+                            <div style={{ width: 32, height: 32, borderRadius: 8, background: "#e7f3ec", color: "#23866d", fontWeight: 800, fontSize: 11, display: "grid", placeItems: "center" }}>{String(fs.sourceName || fs.name || "?").slice(0, 2).toUpperCase()}</div>
+                          )}
+                          <div>
+                            <div style={{ fontSize: 12, fontWeight: 700, color: "#1e382f" }}>{fs.sourceName || fs.name}</div>
+                            {fs.type && <div style={{ fontSize: 9, color: "#87948d", textTransform: "uppercase", fontWeight: 700 }}>{fs.type}</div>}
+                          </div>
+                        </div>
+                        <strong style={{ fontSize: 13, color: "#23866d" }}>{currency(fs.allocatedAmount || 0)}</strong>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1270,8 +1528,8 @@ function AvailabilityView({ totalSB, totalFD, totalEPF, totalInvested, totalLock
           <div className="donut-layout">
             <div className="donut-chart">
               <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={parkedData} dataKey="value" nameKey="name" innerRadius={56} outerRadius={82} paddingAngle={3} stroke="none">
+                <PieChart margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
+                  <Pie data={parkedData} dataKey="value" nameKey="name" innerRadius={46} outerRadius={68} paddingAngle={3} stroke="none">
                     {parkedData.map((item) => (
                       <Cell key={item.name} fill={item.color} />
                     ))}
@@ -1296,8 +1554,8 @@ function AvailabilityView({ totalSB, totalFD, totalEPF, totalInvested, totalLock
           <div className="donut-layout">
             <div className="donut-chart">
               <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={lockInData} dataKey="value" nameKey="name" innerRadius={56} outerRadius={82} paddingAngle={3} stroke="none">
+                <PieChart margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
+                  <Pie data={lockInData} dataKey="value" nameKey="name" innerRadius={46} outerRadius={68} paddingAngle={3} stroke="none">
                     {lockInData.map((item) => (
                       <Cell key={item.name} fill={item.color} />
                     ))}
@@ -1337,6 +1595,114 @@ function AvailabilityView({ totalSB, totalFD, totalEPF, totalInvested, totalLock
           </div>
         </Panel>
       )}
+    </div>
+  );
+}
+
+// -------------------------------------------------------------
+// SAVINGS (FD / PF) VIEW
+// -------------------------------------------------------------
+function SavingsView({ deposits }: { deposits: AnyRecord }) {
+  const fds: AnyRecord[] = deposits.fds || [];
+  const epf = deposits.epf || null;
+  const totalFD = fds.reduce((s, fd) => s + Number(fd.investedAmount || 0), 0);
+  const totalEPF = Number(epf?.totalAccumulated || 0);
+  const totalSavings = totalFD + totalEPF;
+
+  return (
+    <div className="view-stack">
+      <section className="metric-grid metric-grid-three">
+        <MetricCard label="Fixed Deposits" value={currency(totalFD)} icon={Landmark} tone="peach" note={`${fds.length} FDs configured`} />
+        <MetricCard label="EPF / PPF" value={currency(totalEPF)} icon={ShieldCheck} tone="mint" note="Provident fund accumulation" />
+        <MetricCard label="Total Savings" value={currency(totalSavings)} icon={PiggyBank} tone="blue" note="FD + EPF/PPF combined" />
+      </section>
+
+      {fds.length > 0 && (
+        <Panel title="Fixed Deposits" subtitle={`${fds.length} FDs on record`}>
+          <div className="savings-fd-grid">
+            {fds.map((fd, i) => {
+              const isLocked = fd.isLockedIn;
+              const maturityDate = fd.maturityDate || fd.endDate || "";
+              const invested = Number(fd.investedAmount || 0);
+              const rate = Number(fd.interestRate || 0);
+              const estimated = invested > 0 && rate > 0 && maturityDate
+                ? invested * Math.pow(1 + rate / 100, 1) // simple 1-year estimate
+                : 0;
+              return (
+                <div key={fd.id || i} className="fd-card">
+                  <div className="fd-card-header">
+                    <div>
+                      <h3 className="fd-bank-name">{fd.bankName || fd.name || "FD"}</h3>
+                      {fd.accountNumber && <small className="fd-acct">{fd.accountNumber}</small>}
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+                      {rate > 0 && <span className="fd-rate-pill">{rate}% p.a.</span>}
+                      {isLocked && <span className="fd-locked-pill"><Lock size={9} /> Locked</span>}
+                    </div>
+                  </div>
+                  <div className="fd-metrics">
+                    <div>
+                      <span className="sub-label">Invested</span>
+                      <strong className="sub-val">{currency(invested)}</strong>
+                    </div>
+                    {maturityDate && (
+                      <div>
+                        <span className="sub-label">Maturity</span>
+                        <strong className="sub-val" style={{ fontSize: 11 }}>{maturityDate}</strong>
+                      </div>
+                    )}
+                    {estimated > invested && (
+                      <div>
+                        <span className="sub-label">Est. returns</span>
+                        <strong className="sub-val text-emerald">{currency(estimated - invested)}</strong>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Panel>
+      )}
+
+      {epf && (
+        <Panel title="EPF / PPF" subtitle="Provident fund details">
+          <div className="epf-detail-card">
+            <div className="epf-metrics-row">
+              <div>
+                <span className="sub-label">Total accumulated</span>
+                <strong className="sub-val">{currency(epf.totalAccumulated || 0)}</strong>
+              </div>
+              {epf.employeeContribution > 0 && (
+                <div>
+                  <span className="sub-label">Employee contribution</span>
+                  <strong className="sub-val">{currency(epf.employeeContribution)}</strong>
+                </div>
+              )}
+              {epf.employerContribution > 0 && (
+                <div>
+                  <span className="sub-label">Employer contribution</span>
+                  <strong className="sub-val">{currency(epf.employerContribution)}</strong>
+                </div>
+              )}
+              {epf.interestEarned > 0 && (
+                <div>
+                  <span className="sub-label">Interest earned</span>
+                  <strong className="sub-val text-emerald">{currency(epf.interestEarned)}</strong>
+                </div>
+              )}
+              {epf.isLockedIn !== undefined && (
+                <div>
+                  <span className="sub-label">Status</span>
+                  <strong className="sub-val">{epf.isLockedIn ? <span className="text-rose">Locked</span> : <span className="text-emerald">Liquid</span>}</strong>
+                </div>
+              )}
+            </div>
+          </div>
+        </Panel>
+      )}
+
+      {!fds.length && !epf && <EmptyState message="No FD or EPF/PPF data found in this snapshot." />}
     </div>
   );
 }

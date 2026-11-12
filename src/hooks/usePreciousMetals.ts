@@ -175,10 +175,26 @@ export const usePreciousMetals = () => {
       const silverSpotUSD = readSpot(data, "silver") || readQuotePrice(silverQuote);
       const platinumSpotUSD = readSpot(data, "platinum") || readQuotePrice(platinumQuote);
 
-      const gold24k = goldSpotUSD && usdToInr ? Math.ceil((goldSpotUSD * usdToInr) / TROY_OUNCE_TO_GRAMS) : undefined;
-      const silver = localSilver > 0 ? localSilver : silverSpotUSD && usdToInr ? Math.ceil((silverSpotUSD * usdToInr) / TROY_OUNCE_TO_GRAMS) : BENGALURU_SILVER_FALLBACK;
-      const platinum = localPlatinum > 0 ? localPlatinum : platinumSpotUSD && usdToInr ? Math.ceil((platinumSpotUSD * usdToInr) / TROY_OUNCE_TO_GRAMS) : BENGALURU_PLATINUM_FALLBACK;
-      const gold22k = localGold22k > 0 ? localGold22k : BENGALURU_GOLD_22K_FALLBACK;
+      // Sanity clamp helpers — per gram in INR
+      const clampGold24k = (v: number) => (v >= 4000 && v <= 15000 ? v : DEFAULT_RATES.gold24k);
+      const clampGold22k = (v: number) => (v >= 4000 && v <= 15000 ? v : DEFAULT_RATES.gold22k);
+      const clampSilver = (raw: number): number => {
+        // Some sources return per-kg value instead of per-gram (e.g. 99000 instead of 99)
+        let v = raw;
+        if (v > 500) v = v / 1000;
+        return v >= 40 && v <= 250 ? Math.ceil(v) : DEFAULT_RATES.silver;
+      };
+      const clampPlatinum = (v: number) => (v >= 1500 && v <= 8000 ? v : DEFAULT_RATES.platinum);
+
+      let rawGold24k = goldSpotUSD && usdToInr ? Math.ceil((goldSpotUSD * usdToInr) / TROY_OUNCE_TO_GRAMS) : undefined;
+      let rawSilver = localSilver > 0 ? localSilver : silverSpotUSD && usdToInr ? Math.ceil((silverSpotUSD * usdToInr) / TROY_OUNCE_TO_GRAMS) : BENGALURU_SILVER_FALLBACK;
+      let rawPlatinum = localPlatinum > 0 ? localPlatinum : platinumSpotUSD && usdToInr ? Math.ceil((platinumSpotUSD * usdToInr) / TROY_OUNCE_TO_GRAMS) : BENGALURU_PLATINUM_FALLBACK;
+      let rawGold22k = localGold22k > 0 ? localGold22k : BENGALURU_GOLD_22K_FALLBACK;
+
+      const gold24k = rawGold24k !== undefined ? clampGold24k(rawGold24k) : undefined;
+      const gold22k = clampGold22k(rawGold22k);
+      const silver = clampSilver(rawSilver);
+      const platinum = clampPlatinum(rawPlatinum);
 
       setRates((previous) => ({ gold24k: gold24k ?? previous.gold24k, gold22k, silver, platinum, lastUpdated: new Date().toISOString() }));
     } catch (error) {

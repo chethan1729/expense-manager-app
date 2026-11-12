@@ -9,10 +9,35 @@ export interface NetWorthSnapshot {
 
 const STORAGE_KEY = "net-worth-history";
 
+const SPIKE_THRESHOLD = 20_000_000; // 2 crore — anything above is a spike
+
+function sanitizeHistory(raw: NetWorthSnapshot[]): NetWorthSnapshot[] {
+  if (!raw || raw.length === 0) return raw;
+  // Find the median/baseline from non-spiked entries
+  const normal = raw.filter((s) => s.netWorth <= SPIKE_THRESHOLD);
+  if (normal.length === 0) return raw; // cannot determine baseline
+  const baseline = normal[normal.length - 1]; // last good snapshot
+  return raw.map((s) =>
+    s.netWorth > SPIKE_THRESHOLD
+      ? { ...s, netWorth: baseline.netWorth, netWorthWithLoans: baseline.netWorthWithLoans }
+      : s
+  );
+}
+
 export const useNetWorthHistory = () => {
   const [history, setHistory] = useState<NetWorthSnapshot[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
-    return saved ? JSON.parse(saved) : [];
+    if (!saved) return [];
+    try {
+      const parsed: NetWorthSnapshot[] = JSON.parse(saved);
+      const sanitized = sanitizeHistory(parsed);
+      // Persist back if any repairs were made
+      const hasSpike = parsed.some((s) => s.netWorth > SPIKE_THRESHOLD);
+      if (hasSpike) {
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitized)); } catch { /* ignore */ }
+      }
+      return sanitized;
+    } catch { return []; }
   });
 
   useEffect(() => {
